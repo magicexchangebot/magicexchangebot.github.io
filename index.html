@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<title>Калькулятор Magic Exchange</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow phone column (Telegram mini-app), form card → result → contact → owner check panel */
+:root{
+  --bg:#F3F6F2; --surface:#FFFFFF; --sunk:#E8EEE7; --line:#D5DED4;
+  --fg:#13201A; --muted:#5A6B61; --accent:#1C7F47; --accent-fg:#FFFFFF; --soft:#DDF0E4;
+  --warn:#9A5B00; --warn-bg:#FFF2DA;
+  --display:"Unbounded", "Onest", system-ui, sans-serif;
+  --body:"Onest", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1411; --surface:#17201B; --sunk:#111A15; --line:#2A3830;
+  --fg:#E5EEE8; --muted:#93A69A; --accent:#46C07B; --accent-fg:#06140C; --soft:#1C3527;
+  --warn:#F3B95C; --warn-bg:#352812; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1411; --surface:#17201B; --sunk:#111A15; --line:#2A3830;
+  --fg:#E5EEE8; --muted:#93A69A; --accent:#46C07B; --accent-fg:#06140C; --soft:#1C3527;
+  --warn:#F3B95C; --warn-bg:#352812; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:440px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+header{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px 12px}
+header .sub{grid-column:1/-1}
+.logo{width:48px;height:48px;flex:none;border-radius:50%;background:#fff;border:1px solid var(--line);object-fit:cover}
+h1{font-family:var(--display);font-weight:700;font-size:23px;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--muted);font-size:min(15px,calc((100vw - 40px) / 27));margin:0;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .sub b{color:var(--accent);font-weight:700}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--sunk);border-radius:12px;padding:3px;gap:3px}
+.seg button{font:inherit;font-size:13.5px;font-weight:600;border:0;border-radius:10px;padding:9px 6px;background:transparent;color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgb(0 0 0 / .12)}
+.lbl{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) 128px;gap:8px}
+input,select{font:inherit;color:var(--fg);background:var(--sunk);border:1px solid var(--line);border-radius:12px;padding:12px;width:100%;min-width:0}
+input{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+select{font-weight:600;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 17px) 52%,calc(100% - 12px) 52%;background-size:5px 5px;background-repeat:no-repeat;padding-right:28px}
+select:disabled{opacity:.75}
+input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.swap{align-self:center;border:1px solid var(--line);background:var(--surface);color:var(--fg);width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:17px;margin:-4px 0}
+.result{background:var(--soft);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:4px}
+.big{font-family:var(--display);font-weight:700;font-size:28px;letter-spacing:-.02em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.rate{color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums}
+.hint{font-size:13.5px;color:var(--accent);font-weight:600}
+.note{font-size:13.5px;background:var(--warn-bg);color:var(--warn);border-radius:12px;padding:10px 12px}
+.cta{display:block;text-align:center;text-decoration:none;background:var(--accent);color:var(--accent-fg);font-weight:700;border-radius:14px;padding:14px}
+.mgr{color:var(--accent);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.contact{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.contact button{font:inherit;font-size:13px;border:1px solid var(--line);background:transparent;color:var(--fg);border-radius:10px;padding:6px 10px;cursor:pointer}
+details{background:var(--surface);border:1px dashed var(--line);border-radius:16px;padding:12px 14px}
+summary{cursor:pointer;font-weight:600;font-size:14px}
+.check{font-family:var(--mono);font-size:12.5px;line-height:1.6;margin-top:10px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 12px;font-variant-numeric:tabular-nums}
+.check dt{color:var(--muted)} .check dd{margin:0;text-align:right;overflow-wrap:anywhere}
+.check .sep{grid-column:1/-1;border-top:1px solid var(--line);margin:6px 0}
+.foot{color:var(--muted);font-size:12px;text-align:center}
+@media (prefers-reduced-motion:no-preference){.big{transition:opacity .15s}}
+</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} body{margin:0} img{max-width:100%} [hidden]{display:none!important}</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img class="logo" src="data:image/jpeg;base64,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" alt="Magic Exchange">
+    <h1>Калькулятор обмена</h1>
+    <p class="sub"><b>Magic Exchange</b> — обмен валют, проверенный годами</p>
+  </header>
+
+  <section class="card" aria-label="Расчёт">
+    <div class="seg" role="group" aria-label="Что известно">
+      <button id="m-give" aria-pressed="true">Отдаю сумму</button>
+      <button id="m-get" aria-pressed="false">Хочу получить</button>
+    </div>
+    <div>
+      <div class="lbl">Как получить</div>
+      <div class="seg" role="group" aria-label="Способ получения">
+        <button id="w-acc" aria-pressed="true">Перевод на счёт</button>
+        <button id="w-cash" aria-pressed="false">Наличные ฿</button>
+      </div>
+    </div>
+    <div>
+      <div class="lbl">Отдаю</div>
+      <div class="row">
+        <input id="amtFrom" inputmode="decimal" autocomplete="off" aria-label="Сумма, которую отдаю">
+        <select id="from" aria-label="Валюта, которую отдаю"></select>
+      </div>
+    </div>
+    <button class="swap" id="swap" aria-label="Поменять валюты местами">⇅</button>
+    <div>
+      <div class="lbl">Получаю</div>
+      <div class="row">
+        <input id="amtTo" inputmode="decimal" autocomplete="off" aria-label="Сумма, которую получаю">
+        <select id="to" aria-label="Валюта, которую получаю"></select>
+      </div>
+    </div>
+    <div class="result" id="result" aria-live="polite">
+      <div class="lbl" id="resLbl" style="margin:0">Вы получите</div>
+      <div class="big" id="big">—</div>
+      <div class="rate" id="rate"></div>
+      <div class="hint" id="hint" hidden></div>
+    </div>
+    <div class="note" id="note" hidden></div>
+    <a class="cta" id="cta" href="https://t.me/goahouserent" target="_blank" rel="noopener">Оформить обмен в Telegram</a>
+    <div class="contact"><span>Менеджер: <a id="mgr" class="mgr" href="https://t.me/goahouserent" target="_blank" rel="noopener">Александр</a></span></div>
+  </section>
+
+  <details id="dbg">
+    <summary>Проверка расчёта (клиент этого не увидит)</summary>
+    <dl class="check" id="check"></dl>
+  </details>
+  <p class="foot">Тестовые котировки от 26.10.2026. Monobank — пример, в рабочей версии подтягивается автоматически.</p>
+</div>
+
+<script>
+// ---------- Котировки (тест 26.10.2026) ----------
+const Q = {
+  cbr: 80.5381,          // ЦБ USD/RUB
+  bitazzaMid: 33.755,    // USDT/THB середина
+  krakenMid: 0.89125,    // USDT/EUR середина
+  mono: 44.83,           // Monobank USD/UAH, середина покупки/продажи (пример)
+  p2p: { UAH: 47.207, TRY: 53.987, IDR: 18156.6, GEL: 2.818 }
+};
+const FEE = 0.0025, MIN_PROFIT = 11;
+
+const CUR = {
+  RUB:{name:"Рубль",flag:"🇷🇺",dec:0}, UAH:{name:"Гривна",flag:"🇺🇦",dec:2},
+  TRY:{name:"Лира",flag:"🇹🇷",dec:2},  GEL:{name:"Лари",flag:"🇬🇪",dec:2},
+  IDR:{name:"Рупия",flag:"🇮🇩",dec:0}, EUR:{name:"Евро",flag:"🇪🇺",dec:2},
+  THB:{name:"Бат",flag:"🇹🇭",dec:0},   USDT:{name:"USDT",flag:"💲",dec:2}
+};
+const FROM_LIST = ["RUB","UAH","TRY","GEL","IDR","EUR","THB","USDT"];
+const TO_LIST   = ["THB","RUB","UAH","TRY","GEL","IDR","USDT"]; // евро пока не выплачиваем
+
+// Шаг 1: сколько X стоит 1 USDT (себестоимость покупки USDT)
+function buyCost(c){
+  switch(c){
+    case "RUB": return Q.cbr*1.063;
+    case "EUR": return Q.krakenMid*(1+FEE);
+    case "THB": return Q.bitazzaMid*(1+FEE);
+    case "USDT": return 1;
+    default: return Q.p2p[c];
+  }
+}
+// Шаг 2: сколько Y получаю за 1 USDT (до наценки)
+function payPrice(c){
+  switch(c){
+    case "RUB": return Q.cbr;
+    case "UAH": return Q.mono;
+    case "THB": return Q.bitazzaMid*(1-FEE);
+    case "USDT": return 1;
+    default: return Q.p2p[c];
+  }
+}
+// Ступени: from — порог в валюте получения; mode mult = ×(1−p), div = ÷(1+p)
+const THB_GRIDS = {
+  RUB:[[10000,.045],[25000,.0375],[50000,.03],[100000,.025]],
+  USDT:[[10000,.04],[25000,.035],[50000,.03],[100000,.025]],
+  EUR:[[10000,.045],[50000,.0375]],
+  def:[[10000,.04],[50000,.035]]
+};
+function rules(to,from){
+  switch(to){
+    case "RUB": return {mode:"mult",min:false,t:[[0,.05],[10000,.035],[50000,.03],[100000,.025],[150000,.02]]};
+    case "UAH": return {mode:"mult",min:true, t:[[0,.04],[10000,.035],[30000,.03],[100000,.025]]};
+    case "TRY": return {mode:"mult",min:true, t:[[5000,.05],[15000,.04],[50000,.035],[100000,.03],[150000,.025]]};
+    case "GEL": return {mode:"mult",min:true, t:[[500,.045],[1000,.04],[2500,.035],[5000,.03]]};
+    case "IDR": return {mode:"mult",min:true, t:[[6e6,.04],[15e6,.035],[30e6,.03],[60e6,.025]]};
+    case "USDT":return {mode:"mult",min:true, t:[[350,.04],[1000,.035],[1500,.03],[3000,.025]]};
+    case "THB": return {mode:"div", min:true, t:THB_GRIDS[from]||THB_GRIDS.def};
+  }
+}
+const factor=(mode,p)=> mode==="div" ? 1/(1+p) : 1-p;
+
+// Расчёт: отдаю amount валюты from → сколько to
+function calcBase(from,to,amount){
+  const U = amount/buyCost(from), price = payPrice(to), r = rules(to,from);
+  const t = r.t;
+  for(let i=t.length-1;i>=0;i--){
+    const [th,p]=t[i];
+    let net = U*price*factor(r.mode,p);
+    if(net>=th){
+      let tier = `${fmtPct(p)} (от ${fmtNum(th,0)} ${to})`, profit = U - net/price;
+      if(i===0 && th===0 && r.min && profit<MIN_PROFIT){ // первая ступень без нижней границы (гривна)
+        profit = MIN_PROFIT; net=(U-profit)*price; tier = `мин. ${MIN_PROFIT} USDT`;
+      }
+      if(net<=0) return {U,price,net:0,tooSmall:true};
+      return {U,price,net,profit,tier,idx:i,r};
+    }
+  }
+  // Ниже первой ступени: прибыль не меньше 12 USDT
+  const p0=t[0][1], profit=Math.max(MIN_PROFIT, U*(1-factor(r.mode,p0)));
+  const net=(U-profit)*price;
+  if(net<=0) return {U,price,net:0,tooSmall:true};
+  return {U,price,net,profit,tier:`мин. ${MIN_PROFIT} USDT (ниже ${fmtNum(t[0][0],0)} ${to})`,idx:-1,r};
+}
+// Скидка за перевод бат на счёт (по сумме к получению)
+const ACC_DISC=[[15000,.005],[50000,.0025],[150000,.0015]];
+function discFor(net){let d=0;for(const [th,v] of ACC_DISC) if(net>=th) d=v;return d;}
+function calc(from,to,amount,cash){
+  const r=calcBase(from,to,amount);
+  if(r.tooSmall||to!=="THB") return r;
+  if(cash){ // банкоматы выдают от 100 ฿ — округляем вниз до сотни
+    const net=Math.floor(r.net/100)*100;
+    if(net<100) return {...r,net:0,tooSmall:true};
+    return {...r,net,profit:r.U-net/r.price,tier:r.tier+" · округл. до 100 ฿"};
+  }
+  const d=discFor(r.net); if(!d) return r;
+  const net=r.net*(1+d);
+  return {...r,net,profit:r.U-net/r.price,disc:d,tier:r.tier+` + скидка за перевод ${fmtPct(d)}`};
+}
+// Обратный расчёт: хочу получить target → сколько отдать (минимальная сумма)
+function calcReverse(from,to,target,cash){
+  let lo=0, hi=(target/payPrice(to)+MIN_PROFIT)*buyCost(from)*1.5;
+  for(let k=0;k<40 && calc(from,to,hi,cash).net<target;k++) hi*=2;
+  for(let k=0;k<70;k++){const mid=(lo+hi)/2; if(calc(from,to,mid,cash).net>=target) hi=mid; else lo=mid;}
+  return hi;
+}
+
+// ---------- Формат ----------
+const fmtNum=(v,d)=>v.toLocaleString("ru-RU",{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtPct=p=>(p*100).toLocaleString("ru-RU",{maximumFractionDigits:2})+"%";
+const fmtAmt=(v,c)=>fmtNum(v,CUR[c].dec)+" "+c;
+function rateDigits(x){return x>=100?0:x>=10?2:x>=1?3:4}
+function parse(s){const v=parseFloat(String(s).replace(/\s/g,"").replace(",","."));return isFinite(v)&&v>0?v:0}
+
+// ---------- UI ----------
+const $=id=>document.getElementById(id);
+const st={mode:"give",cash:false,from:"RUB",to:"THB"};
+function opts(sel,list,val){
+  sel.innerHTML=list.map(c=>`<option value="${c}">${CUR[c].flag} ${c}</option>`).join("");
+  sel.value=list.includes(val)?val:list[0];
+}
+function sync(){
+  if(st.cash){ st.to="THB"; if(st.from==="THB") st.from="RUB"; }
+  opts($("from"),FROM_LIST.filter(c=>c!==st.to),st.from); st.from=$("from").value;
+  opts($("to"),(st.cash?["THB"]:TO_LIST).filter(c=>c!==st.from),st.to); st.to=$("to").value;
+  $("to").disabled=st.cash;
+  $("m-give").setAttribute("aria-pressed",st.mode==="give");
+  $("m-get").setAttribute("aria-pressed",st.mode==="get");
+  $("w-acc").setAttribute("aria-pressed",!st.cash);
+  $("w-cash").setAttribute("aria-pressed",st.cash);
+  update();
+}
+function update(){
+  const from=st.from,to=st.to;
+  let give,res;
+  if(st.mode==="give"){ give=parse($("amtFrom").value); res=give?calc(from,to,give,st.cash):null; }
+  else { let want=parse($("amtTo").value); if(want&&st.cash&&to==="THB") want=Math.ceil(want/100)*100; st.wantR=want; if(want){give=calcReverse(from,to,want,st.cash); res=calc(from,to,give,st.cash);} }
+  $("resLbl").textContent = st.mode==="give" ? "Вы получите" : "Нужно отдать";
+  const note=$("note"), hint=$("hint");
+  note.hidden=true; hint.hidden=true;
+  if(!res||res.tooSmall){
+    $("big").textContent="—"; $("rate").textContent= res&&res.tooSmall ? "Сумма слишком мала для обмена" : "Введите сумму";
+    if(st.mode==="give") $("amtTo").value=""; else $("amtFrom").value="";
+    $("check").innerHTML=""; setCta(null); return;
+  }
+  const net=res.net;
+  if(st.mode==="give"){ $("amtTo").value=fmtNum(net,CUR[to].dec); $("big").textContent=fmtAmt(net,to); }
+  else { const g=Math.ceil(give*Math.pow(10,CUR[from].dec))/Math.pow(10,CUR[from].dec); give=g; $("amtFrom").value=fmtNum(g,CUR[from].dec); $("big").textContent=fmtAmt(g,from); }
+  // курс: «1 более дорогая = N более дешёвой»
+  const valFrom=1/buyCost(from), valTo=1/payPrice(to);
+  let rateTxt;
+  if(valTo>=valFrom){const x=give/net; rateTxt=`Курс: 1 ${to} = ${fmtNum(x,rateDigits(x))} ${from}`;}
+  else {const x=net/give; rateTxt=`Курс: 1 ${from} = ${fmtNum(x,rateDigits(x))} ${to}`;}
+  $("rate").textContent=rateTxt;
+  // подсказка о следующей ступени
+  const t=res.r.t, nx=res.idx+1;
+  let next = nx<t.length ? t[nx][0] : Infinity;
+  if(to==="THB" && !st.cash && net<15000 && 15000<next) next=15000;
+  if(next<Infinity){hint.textContent=`От ${fmtAmt(next,to)} к получению курс выгоднее`; hint.hidden=false;}
+  if(from==="THB"){note.textContent="Способ передачи бат обсудим в переписке перед обменом."; note.hidden=false;}
+  if(st.cash){
+    note.textContent="Наличные выдаём в батах, суммой кратной 100 ฿: банкоматы не выдают мелкие купюры."+(st.mode==="get"?` К выдаче: ${fmtAmt(st.wantR,"THB")}.`:""); note.hidden=false;
+    const fallback="Переводом на счёт от 15 000 ฿ — скидка 0,5%";
+    if(st.mode==="give"){ const alt=calc(from,to,give,false), diff=alt.net-net;
+      hint.textContent = diff>=1 ? `Переводом на счёт получите на ${fmtAmt(diff,to)} больше (скидка ${fmtPct(alt.disc)})` : fallback;
+    } else { const g2=calcReverse(from,to,parse($("amtTo").value),false), diff=give-g2;
+      hint.textContent = diff>=Math.pow(10,-CUR[from].dec) ? `Переводом на счёт нужно отдать на ${fmtAmt(diff,from)} меньше (скидка ${fmtPct(calc(from,to,g2,false).disc||0)})` : fallback; }
+    hint.hidden=false;
+  }
+  // проверка
+  const rows=[
+    ["Отдаёт",fmtAmt(give,from)],
+    [`Цена 1 USDT в ${from}`,fmtNum(buyCost(from),4)],
+    ["USDT (себестоимость)",fmtNum(res.U,2)],
+    ["sep"],
+    [`Цена 1 USDT в ${to}`,fmtNum(res.price,4)],
+    ["Ступень",res.tier],
+    ["Получает",fmtAmt(net,to)],
+    ["Прибыль, USDT",fmtNum(res.profit,2)]
+  ];
+  $("check").innerHTML=rows.map(r=>r[0]==="sep"?'<div class="sep"></div>':`<dt>${r[0]}</dt><dd>${r[1]}</dd>`).join("");
+  setCta({give,from,net,to});
+}
+let reqText="";
+function setCta(d){
+  if(!d){reqText="";$("cta").href="https://t.me/goahouserent";return;}
+  reqText=`Здравствуйте! Хочу обменять ${fmtAmt(d.give,d.from)} → ${fmtAmt(d.net,d.to)} (${st.cash?"наличные":"перевод на счёт"}). Расчёт из калькулятора Magic Exchange.`;
+  $("cta").href="https://t.me/goahouserent?text="+encodeURIComponent(reqText);
+  $("mgr").href=$("cta").href;
+}
+$("m-give").onclick=()=>{st.mode="give";sync()};
+$("m-get").onclick=()=>{st.mode="get";if(!$("amtTo").value)$("amtTo").value="30 000";sync()};
+$("w-acc").onclick=()=>{st.cash=false;sync()};
+$("w-cash").onclick=()=>{st.cash=true;st.to="THB";if(st.from==="THB")st.from="RUB";sync()};
+$("from").onchange=e=>{st.from=e.target.value;sync()};
+$("to").onchange=e=>{st.to=e.target.value;sync()};
+$("swap").onclick=()=>{ if(st.cash) return; const f=st.from,t=st.to;
+  if(!TO_LIST.includes(f)) return; st.from=t; st.to=f; sync(); };
+$("amtFrom").addEventListener("input",()=>{if(st.mode!=="give"){st.mode="give";sync();}else update();});
+$("amtTo").addEventListener("input",()=>{if(st.mode!=="get"){st.mode="get";sync();}else update();});
+$("amtFrom").value="100 000";
+sync();
+</script>
+<script>
+// Telegram Mini App: тема, раскрытие на весь экран, ссылки в Telegram
+(function(){
+  var tg = window.Telegram && window.Telegram.WebApp;
+  if(!tg || !tg.initData && !tg.platform) return;
+  try{ tg.ready(); tg.expand(); }catch(e){}
+  try{ if(tg.colorScheme) document.documentElement.setAttribute('data-theme', tg.colorScheme); }catch(e){}
+  document.addEventListener('click', function(e){
+    var a = e.target.closest && e.target.closest('a[href^="https://t.me/"]');
+    if(!a || !tg.openTelegramLink) return;
+    e.preventDefault(); tg.openTelegramLink(a.href);
+  });
+})();
+// Панель проверки видна только по ссылке с #check
+document.getElementById('dbg').hidden = location.hash !== '#check';
+</script>
+</body>
+</html>
