@@ -127,6 +127,7 @@ summary{cursor:pointer;font-weight:600;font-size:14px}
       <div class="big" id="big">—</div>
       <div class="rate" id="rate"></div>
       <div class="hint" id="hint" hidden></div>
+      <div class="hint" id="hint2" hidden></div>
     </div>
     <div class="note" id="note" hidden></div>
     <a class="cta" id="cta" href="https://t.me/goahouserent" target="_blank" rel="noopener">Оформить обмен в Telegram</a>
@@ -297,8 +298,8 @@ function update(){
   if(st.mode==="give"){ give=parse($("amtFrom").value); res=give?calc(from,to,give,st.cash):null; }
   else { let want=parse($("amtTo").value); if(want&&st.cash&&to==="THB") want=Math.round(want/100)*100; st.wantR=want; if(want){give=calcReverse(from,to,want,st.cash); res=calc(from,to,give,st.cash,true);} }
   $("resLbl").textContent = st.mode==="give" ? "Вы получите" : "Нужно отдать";
-  const note=$("note"), hint=$("hint");
-  note.hidden=true; hint.hidden=true;
+  const note=$("note"), hint=$("hint"), hint2=$("hint2");
+  note.hidden=true; hint.hidden=true; hint2.hidden=true;
   if(!res||res.tooSmall){
     $("big").textContent="—"; $("rate").textContent= res&&res.tooSmall ? "Сумма слишком мала для обмена" : "Введите сумму";
     if(st.mode==="give") $("amtTo").value=""; else $("amtFrom").value="";
@@ -323,10 +324,10 @@ function update(){
     note.textContent="Наличные выдаём в батах, суммой кратной 100 ฿: банкоматы не выдают мелкие купюры."+(st.mode==="get"?` К выдаче: ${fmtAmt(st.wantR,"THB")}.`:""); note.hidden=false;
     const fallback="Переводом на счёт от 15 000 ฿ — скидка 0,5%";
     if(st.mode==="give"){ const alt=calc(from,to,give,false), diff=alt.net-net;
-      hint.textContent = diff>=1 ? `Переводом на счёт получите на ${fmtAmt(diff,to)} больше (скидка ${fmtPct(alt.disc)})` : fallback;
+      hint2.textContent = diff>=1 ? `Переводом на счёт получите на ${fmtAmt(diff,to)} больше (скидка ${fmtPct(alt.disc)})` : fallback;
     } else { const g2=calcReverse(from,to,parse($("amtTo").value),false), diff=give-g2;
-      hint.textContent = diff>=Math.pow(10,-CUR[from].dec) ? `Переводом на счёт нужно отдать на ${fmtAmt(diff,from)} меньше (скидка ${fmtPct(calc(from,to,g2,false).disc||0)})` : fallback; }
-    hint.hidden=false;
+      hint2.textContent = diff>=Math.pow(10,-CUR[from].dec) ? `Переводом на счёт нужно отдать на ${fmtAmt(diff,from)} меньше (скидка ${fmtPct(calc(from,to,g2,false).disc||0)})` : fallback; }
+    hint2.hidden=false;
   }
   // проверка
   const rows=[
