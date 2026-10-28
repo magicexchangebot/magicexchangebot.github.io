@@ -71,6 +71,7 @@ input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible,su
 .rate{color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums}
 .hint{font-size:13.5px;color:var(--accent);font-weight:600}
 .note{font-size:13.5px;background:var(--warn-bg);color:var(--warn);border-radius:12px;padding:10px 12px}
+.promo{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:14px}
 .cta{display:block;text-align:center;text-decoration:none;background:var(--accent);color:var(--accent-fg);font-weight:700;border-radius:14px;padding:14px}
 .mgr{color:var(--accent);font-weight:700;text-decoration:underline;text-underline-offset:3px}
 .contact{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
@@ -126,9 +127,8 @@ summary{cursor:pointer;font-weight:600;font-size:14px}
       <div class="lbl" id="resLbl" style="margin:0">Вы получите</div>
       <div class="big" id="big">—</div>
       <div class="rate" id="rate"></div>
-      <div class="hint" id="hint" hidden></div>
-      <div class="hint" id="hint2" hidden></div>
     </div>
+    <div class="note promo" id="promo" hidden><div id="hint" hidden></div><div id="hint2" hidden></div></div>
     <div class="note" id="note" hidden></div>
     <a class="cta" id="cta" href="https://t.me/goahouserent" target="_blank" rel="noopener">Оформить обмен в Telegram</a>
     <div class="contact"><span>Менеджер: <a id="mgr" class="mgr" href="https://t.me/goahouserent" target="_blank" rel="noopener">Александр</a></span></div>
@@ -299,7 +299,7 @@ function update(){
   else { let want=parse($("amtTo").value); if(want&&st.cash&&to==="THB") want=Math.round(want/100)*100; st.wantR=want; if(want){give=calcReverse(from,to,want,st.cash); res=calc(from,to,give,st.cash,true);} }
   $("resLbl").textContent = st.mode==="give" ? "Вы получите" : "Нужно отдать";
   const note=$("note"), hint=$("hint"), hint2=$("hint2");
-  note.hidden=true; hint.hidden=true; hint2.hidden=true;
+  note.hidden=true; hint.hidden=true; hint2.hidden=true; $("promo").hidden=true;
   if(!res||res.tooSmall){
     $("big").textContent="—"; $("rate").textContent= res&&res.tooSmall ? "Сумма слишком мала для обмена" : "Введите сумму";
     if(st.mode==="give") $("amtTo").value=""; else $("amtFrom").value="";
@@ -321,7 +321,6 @@ function update(){
   if(next<Infinity){hint.textContent=`От ${fmtAmt(next,to)} к получению курс выгоднее`; hint.hidden=false;}
   if(from==="THB"){note.textContent="Способ передачи бат обсудим в переписке перед обменом."; note.hidden=false;}
   if(st.cash){
-    note.textContent="Наличные выдаём в батах, суммой кратной 100 ฿: банкоматы не выдают мелкие купюры."+(st.mode==="get"?` К выдаче: ${fmtAmt(st.wantR,"THB")}.`:""); note.hidden=false;
     const fallback="Переводом на счёт от 15 000 ฿ — скидка 0,5%";
     if(st.mode==="give"){ const alt=calc(from,to,give,false), diff=alt.net-net;
       hint2.textContent = diff>=1 ? `Переводом на счёт получите на ${fmtAmt(diff,to)} больше (скидка ${fmtPct(alt.disc)})` : fallback;
@@ -329,6 +328,7 @@ function update(){
       hint2.textContent = diff>=Math.pow(10,-CUR[from].dec) ? `Переводом на счёт нужно отдать на ${fmtAmt(diff,from)} меньше (скидка ${fmtPct(calc(from,to,g2,false).disc||0)})` : fallback; }
     hint2.hidden=false;
   }
+  $("promo").hidden = hint.hidden && hint2.hidden;
   // проверка
   const rows=[
     ["Отдаёт",fmtAmt(give,from)],
