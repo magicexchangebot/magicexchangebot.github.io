@@ -117,19 +117,18 @@ summary{cursor:pointer;font-weight:600;font-size:14px}
     <summary>Проверка расчёта (клиент этого не увидит)</summary>
     <dl class="check" id="check"></dl>
   </details>
-  <p class="foot">Тестовые котировки от 26.10.2026. Monobank — пример, в рабочей версии подтягивается автоматически.</p>
+  <p class="foot" id="foot">Загружаю актуальные курсы…</p>
 </div>
 
 <script>
-// ---------- Котировки (тест 26.10.2026) ----------
-const Q = {
-  cbr: 80.5381,          // ЦБ USD/RUB
-  bitazzaMid: 33.755,    // USDT/THB середина
-  krakenMid: 0.89125,    // USDT/EUR середина
-  mono: 44.83,           // Monobank USD/UAH, середина покупки/продажи (пример)
-  p2p: { UAH: 47.207, TRY: 53.987, IDR: 18156.6, GEL: 2.818 }
-};
-const FEE = 0.0025, MIN_PROFIT = 11;
+// ---------- Котировки: бот Magic Exchange, пересчёт раз в час ----------
+const QUOTES_URL = "https://script.google.com/macros/s/AKfycbw6wktdcU8S7AwZpuFD2xOtCKekh65C-lFAnK9Y0nbXeadliWYGXd8u30AlQ7sOisdEYA/exec";
+// Запасные значения (26.10.2026), если бот недоступен
+let THB = { mid: 33.755, fee: 0.0025 };
+let BUY = { RUB: 80.5381*1.063, UAH: 47.207, TRY: 53.987, IDR: 18156.6, GEL: 2.818, EUR: 0.89125*1.0025 };
+let PAY = { RUB: 80.5381, UAH: 44.83, TRY: 53.987, IDR: 18156.6, GEL: 2.818 };
+let QUOTES_TIME = null, QUOTES_LIVE = false;
+const MIN_PROFIT = 11;
 
 const CUR = {
   RUB:{name:"Рубль",flag:"🇷🇺",dec:0}, UAH:{name:"Гривна",flag:"🇺🇦",dec:2},
@@ -137,34 +136,26 @@ const CUR = {
   IDR:{name:"Рупия",flag:"🇮🇩",dec:0}, EUR:{name:"Евро",flag:"🇪🇺",dec:2},
   THB:{name:"Бат",flag:"🇹🇭",dec:0},   USDT:{name:"USDT",flag:"💲",dec:2}
 };
-const FROM_LIST = ["RUB","UAH","TRY","GEL","IDR","EUR","THB","USDT"];
-const TO_LIST   = ["THB","RUB","UAH","TRY","GEL","IDR","USDT"]; // евро пока не выплачиваем
+let FROM_LIST = ["RUB","UAH","TRY","GEL","IDR","EUR","THB","USDT"];
+let TO_LIST   = ["THB","RUB","UAH","TRY","GEL","IDR","USDT"]; // евро пока не выплачиваем
 
 // Шаг 1: сколько X стоит 1 USDT (себестоимость покупки USDT)
 function buyCost(c){
-  switch(c){
-    case "RUB": return Q.cbr*1.063;
-    case "EUR": return Q.krakenMid*(1+FEE);
-    case "THB": return Q.bitazzaMid*(1+FEE);
-    case "USDT": return 1;
-    default: return Q.p2p[c];
-  }
+  if(c==="USDT") return 1;
+  if(c==="THB") return THB.mid*(1+THB.fee);
+  return BUY[c];
 }
 // Шаг 2: сколько Y получаю за 1 USDT (до наценки)
 function payPrice(c){
-  switch(c){
-    case "RUB": return Q.cbr;
-    case "UAH": return Q.mono;
-    case "THB": return Q.bitazzaMid*(1-FEE);
-    case "USDT": return 1;
-    default: return Q.p2p[c];
-  }
+  if(c==="USDT") return 1;
+  if(c==="THB") return THB.mid*(1-THB.fee);
+  return PAY[c];
 }
 // Ступени: from — порог в валюте получения; mode mult = ×(1−p), div = ÷(1+p)
-const THB_GRIDS = {
+let THB_GRIDS = {
   RUB:[[10000,.045],[25000,.0375],[50000,.03],[100000,.025]],
   USDT:[[10000,.04],[25000,.035],[50000,.03],[100000,.025]],
-  EUR:[[10000,.045],[50000,.0375]],
+  EUR:[[10000,.045],[50000,.0375]], UAH:[[10000,.045],[50000,.0375]], TRY:[[10000,.045],[50000,.0375]],
   def:[[10000,.04],[50000,.035]]
 };
 function rules(to,from){
@@ -320,6 +311,32 @@ $("amtFrom").addEventListener("input",()=>{if(st.mode!=="give"){st.mode="give";s
 $("amtTo").addEventListener("input",()=>{if(st.mode!=="get"){st.mode="get";sync();}else update();});
 $("amtFrom").value="100 000";
 sync();
+function setFoot(){
+  const f=$("foot");
+  if(QUOTES_LIVE && QUOTES_TIME){
+    const t=QUOTES_TIME.toLocaleString("ru-RU",{timeZone:"Asia/Bangkok",day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"});
+    f.textContent="Курсы обновлены "+t+" (время Таиланда). Окончательный курс подтвердит менеджер.";
+  } else f.textContent="Не удалось загрузить актуальные курсы. Расчёт примерный — точный курс подтвердит менеджер.";
+}
+function applyQuotes(q){
+  if(!q || !q.thb || !q.cur) return false;
+  THB={mid:Number(q.thb.mid),fee:Number(q.thb.fee)/100};
+  const c=q.cur, buy={}, pay={};
+  Object.keys(c).forEach(k=>{ if(c[k] && c[k].buy>0) buy[k]=Number(c[k].buy); });
+  if(c.RUB && c.RUB.cbr>0) pay.RUB=Number(c.RUB.cbr);
+  if(c.UAH && c.UAH.pay>0) pay.UAH=Number(c.UAH.pay);
+  ["TRY","IDR","GEL"].forEach(k=>{ if(buy[k]) pay[k]=buy[k]; });
+  BUY=buy; PAY=pay;
+  if(q.tiers) Object.keys(q.tiers).forEach(k=>{ if(q.tiers[k] && q.tiers[k].length) THB_GRIDS[k]=q.tiers[k]; });
+  FROM_LIST=FROM_LIST.filter(k=>k==="THB"||k==="USDT"||BUY[k]>0);
+  TO_LIST=TO_LIST.filter(k=>k==="THB"||k==="USDT"||PAY[k]>0);
+  if(!FROM_LIST.includes(st.from)) st.from="THB";
+  if(!TO_LIST.includes(st.to)) st.to="THB";
+  QUOTES_TIME=q.updated?new Date(q.updated):null; QUOTES_LIVE=true;
+  return true;
+}
+fetch(QUOTES_URL).then(r=>r.json()).then(q=>{ applyQuotes(q); setFoot(); sync(); })
+  .catch(()=>{ setFoot(); });
 </script>
 <script>
 // Telegram Mini App: тема, раскрытие на весь экран, ссылки в Telegram
