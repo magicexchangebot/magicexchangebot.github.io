@@ -98,7 +98,7 @@ summary{cursor:pointer;font-weight:600;font-size:14px}
     </div>
     <button class="swap" id="swap" aria-label="Поменять валюты местами">⇅</button>
     <div>
-      <div class="lbl">Получаю</div>
+      <div class="lbl" id="toLbl">Получаю</div>
       <div class="row">
         <input id="amtTo" inputmode="decimal" autocomplete="off" aria-label="Сумма, которую получаю">
         <select id="to" aria-label="Валюта, которую получаю"></select>
@@ -241,6 +241,7 @@ function sync(){
   $("m-get").setAttribute("aria-pressed",st.mode==="get");
   $("w-acc").setAttribute("aria-pressed",!st.cash);
   $("w-cash").setAttribute("aria-pressed",st.cash);
+  $("toLbl").textContent = st.cash ? "Получаю · кратно 100 ฿" : "Получаю";
   update();
 }
 function update(){
@@ -304,12 +305,25 @@ function setCta(d){
 $("m-give").onclick=()=>{st.mode="give";sync()};
 $("m-get").onclick=()=>{st.mode="get";if(!$("amtTo").value)$("amtTo").value="30 000";sync()};
 $("w-acc").onclick=()=>{st.cash=false;sync()};
-$("w-cash").onclick=()=>{st.cash=true;st.to="THB";if(st.from==="THB")st.from="RUB";sync()};
+$("w-cash").onclick=()=>{st.cash=true;st.to="THB";if(st.from==="THB")st.from="RUB";if(st.mode==="get")snapCashSilent();sync()};
 $("from").onchange=e=>{st.from=e.target.value;sync()};
 $("to").onchange=e=>{st.to=e.target.value;sync()};
 $("swap").onclick=()=>{ if(st.cash) return; const f=st.from,t=st.to;
   if(!TO_LIST.includes(f)) return; st.from=t; st.to=f; sync(); };
 $("amtFrom").addEventListener("input",()=>{if(st.mode!=="give"){st.mode="give";sync();}else update();});
+function snapCashSilent(){
+  if(!(st.cash && st.to==="THB")) return;
+  const v=parse($("amtTo").value); if(v) $("amtTo").value=fmtNum(Math.max(100,Math.round(v/100)*100),0);
+}
+function snapCash(){
+  if(!(st.cash && st.to==="THB")) return;
+  const v=parse($("amtTo").value); if(!v) return;
+  const r=Math.max(100,Math.round(v/100)*100);
+  $("amtTo").value=fmtNum(r,0);
+  if(st.mode==="get") update();
+}
+$("amtTo").addEventListener("blur",snapCash);
+$("amtTo").addEventListener("keydown",e=>{ if(e.key==="Enter"){ snapCash(); e.target.blur(); } });
 $("amtTo").addEventListener("input",()=>{if(st.mode!=="get"){st.mode="get";sync();}else update();});
 $("amtFrom").value="100 000";
 sync();
