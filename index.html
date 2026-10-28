@@ -198,13 +198,13 @@ function calcBase(from,to,amount){
 // Скидка за перевод бат на счёт (по сумме к получению)
 const ACC_DISC=[[15000,.005],[50000,.0025],[150000,.0015]];
 function discFor(net){let d=0;for(const [th,v] of ACC_DISC) if(net>=th) d=v;return d;}
-function calc(from,to,amount,cash){
+function calc(from,to,amount,cash,noRound){
   const r=calcBase(from,to,amount);
   if(r.tooSmall||to!=="THB") return r;
-  if(cash){ // банкоматы выдают от 100 ฿ — округляем вниз до сотни
-    const net=Math.floor(r.net/100)*100;
+  if(cash){ // банкоматы выдают от 100 ฿ — округляем до сотни: до 49 вниз, от 50 вверх
+    const net=noRound?r.net:Math.round(r.net/100)*100;
     if(net<100) return {...r,net:0,tooSmall:true};
-    return {...r,net,profit:r.U-net/r.price,tier:r.tier+" · округл. до 100 ฿"};
+    return {...r,net,profit:r.U-net/r.price,tier:r.tier+(noRound?"":" · округл. до 100 ฿")};
   }
   const d=discFor(r.net); if(!d) return r;
   const net=r.net*(1+d);
@@ -213,8 +213,8 @@ function calc(from,to,amount,cash){
 // Обратный расчёт: хочу получить target → сколько отдать (минимальная сумма)
 function calcReverse(from,to,target,cash){
   let lo=0, hi=(target/payPrice(to)+MIN_PROFIT)*buyCost(from)*1.5;
-  for(let k=0;k<40 && calc(from,to,hi,cash).net<target;k++) hi*=2;
-  for(let k=0;k<70;k++){const mid=(lo+hi)/2; if(calc(from,to,mid,cash).net>=target) hi=mid; else lo=mid;}
+  for(let k=0;k<40 && calc(from,to,hi,cash,true).net<target;k++) hi*=2;
+  for(let k=0;k<70;k++){const mid=(lo+hi)/2; if(calc(from,to,mid,cash,true).net>=target) hi=mid; else lo=mid;}
   return hi;
 }
 
@@ -247,7 +247,7 @@ function update(){
   const from=st.from,to=st.to;
   let give,res;
   if(st.mode==="give"){ give=parse($("amtFrom").value); res=give?calc(from,to,give,st.cash):null; }
-  else { let want=parse($("amtTo").value); if(want&&st.cash&&to==="THB") want=Math.ceil(want/100)*100; st.wantR=want; if(want){give=calcReverse(from,to,want,st.cash); res=calc(from,to,give,st.cash);} }
+  else { let want=parse($("amtTo").value); if(want&&st.cash&&to==="THB") want=Math.round(want/100)*100; st.wantR=want; if(want){give=calcReverse(from,to,want,st.cash); res=calc(from,to,give,st.cash,true);} }
   $("resLbl").textContent = st.mode==="give" ? "Вы получите" : "Нужно отдать";
   const note=$("note"), hint=$("hint");
   note.hidden=true; hint.hidden=true;
