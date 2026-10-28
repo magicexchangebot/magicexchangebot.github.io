@@ -48,6 +48,22 @@ input,select{font:inherit;color:var(--fg);background:var(--sunk);border:1px soli
 input{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
 select{font-weight:600;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 17px) 52%,calc(100% - 12px) 52%;background-size:5px 5px;background-repeat:no-repeat;padding-right:28px}
 select:disabled{opacity:.75}
+/* Свой выбор валюты (вместо системного списка — чтобы показать логотип USDT) */
+select.native{display:none}
+.pick{font:inherit;font-weight:600;color:var(--fg);background-color:var(--sunk);border:1px solid var(--line);border-radius:12px;padding:12px 28px 12px 12px;width:100%;min-width:0;display:flex;align-items:center;gap:8px;cursor:pointer;text-align:left;
+  background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 17px) 52%,calc(100% - 12px) 52%;background-size:5px 5px;background-repeat:no-repeat}
+.pick:disabled{opacity:.75;cursor:default}
+.ico{width:22px;height:22px;flex:none;display:inline-flex;align-items:center;justify-content:center;font-size:19px;line-height:1}
+.ico svg{width:21px;height:21px;display:block}
+.sheet-bg{position:fixed;inset:0;background:rgb(0 0 0 / .4);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:480px;border-radius:20px 20px 0 0;padding:16px max(16px,env(safe-area-inset-left,0px)) max(20px,env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px;max-height:85vh;overflow:auto}
+.sheet-h{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:700;font-size:16px}
+.sheet-x{font:inherit;font-size:20px;line-height:1;border:0;background:var(--sunk);color:var(--muted);width:34px;height:34px;border-radius:50%;cursor:pointer}
+.sheet-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.opt{font:inherit;display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--sunk);color:var(--fg);cursor:pointer;text-align:left;min-width:0}
+.opt .c{font-weight:700} .opt .n{display:block;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.opt[aria-pressed="true"]{border-color:var(--accent);background:var(--soft)}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}}}
 input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .swap{align-self:center;border:1px solid var(--line);background:var(--surface);color:var(--fg);width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:17px;margin:-4px 0}
 .result{background:var(--soft);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:4px}
@@ -93,7 +109,8 @@ summary{cursor:pointer;font-weight:600;font-size:14px}
       <div class="lbl">Отдаю</div>
       <div class="row">
         <input id="amtFrom" inputmode="decimal" autocomplete="off" aria-label="Сумма, которую отдаю">
-        <select id="from" aria-label="Валюта, которую отдаю"></select>
+        <select id="from" class="native" aria-hidden="true" tabindex="-1"></select>
+        <button type="button" class="pick" id="pk-from" aria-haspopup="dialog" aria-label="Валюта, которую отдаю"></button>
       </div>
     </div>
     <button class="swap" id="swap" aria-label="Поменять валюты местами">⇅</button>
@@ -101,7 +118,8 @@ summary{cursor:pointer;font-weight:600;font-size:14px}
       <div class="lbl" id="toLbl">Получаю</div>
       <div class="row">
         <input id="amtTo" inputmode="decimal" autocomplete="off" aria-label="Сумма, которую получаю">
-        <select id="to" aria-label="Валюта, которую получаю"></select>
+        <select id="to" class="native" aria-hidden="true" tabindex="-1"></select>
+        <button type="button" class="pick" id="pk-to" aria-haspopup="dialog" aria-label="Валюта, которую получаю"></button>
       </div>
     </div>
     <div class="result" id="result" aria-live="polite">
@@ -136,7 +154,7 @@ const CUR = {
   RUB:{name:"Рубль",flag:"🇷🇺",dec:0}, UAH:{name:"Гривна",flag:"🇺🇦",dec:2},
   TRY:{name:"Лира",flag:"🇹🇷",dec:2},  GEL:{name:"Лари",flag:"🇬🇪",dec:2},
   IDR:{name:"Рупия",flag:"🇮🇩",dec:0}, EUR:{name:"Евро",flag:"🇪🇺",dec:2},
-  THB:{name:"Бат",flag:"🇹🇭",dec:0},   USDT:{name:"USDT",flag:"💲",dec:2}
+  THB:{name:"Бат",flag:"🇹🇭",dec:0},   USDT:{name:"Tether",flag:"",dec:2}
 };
 let FROM_LIST = ["RUB","UAH","TRY","GEL","IDR","EUR","THB","USDT"];
 let TO_LIST   = ["THB","RUB","UAH","TRY","GEL","IDR","USDT"]; // евро пока не выплачиваем
@@ -228,15 +246,44 @@ function parse(s){const v=parseFloat(String(s).replace(/\s/g,"").replace(",","."
 // ---------- UI ----------
 const $=id=>document.getElementById(id);
 const st={mode:"give",cash:false,from:"RUB",to:"THB"};
+// Логотип Tether (USDT): зелёный круг с белым ₮
+const TETHER_SVG='<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="16" fill="#26A17B"/><path fill="#fff" d="M8 8.2h16v3.9h-5.9v3.2c3.7.2 6.5 1 6.5 1.9s-2.8 1.7-6.5 1.9v6.7h-4.2v-6.7c-3.7-.2-6.5-1-6.5-1.9s2.8-1.7 6.5-1.9v-3.2H8V8.2zm8 9.8c3 0 5.6-.3 6.3-.8-.6-.4-2.7-.7-5.2-.8v1.5h-2.2v-1.5c-2.5.1-4.6.4-5.2.8.7.5 3.3.8 6.3.8z"/></svg>';
+function icon(c){ return `<span class="ico">${c==="USDT"?TETHER_SVG:CUR[c].flag}</span>`; }
 function opts(sel,list,val){
-  sel.innerHTML=list.map(c=>`<option value="${c}">${CUR[c].flag} ${c}</option>`).join("");
+  sel.innerHTML=list.map(c=>`<option value="${c}">${c}</option>`).join("");
   sel.value=list.includes(val)?val:list[0];
+  const pk=$("pk-"+sel.id);
+  pk.innerHTML=`${icon(sel.value)}<span>${sel.value}</span>`;
+  pk.disabled=list.length<2;
 }
+// Нижняя панель со списком валют
+let sheetEl=null, sheetBack=null;
+function closeSheet(){ if(!sheetEl) return; sheetEl.remove(); sheetEl=null; document.removeEventListener("keydown",sheetKey); if(sheetBack) sheetBack.focus(); }
+function sheetKey(e){ if(e.key==="Escape") closeSheet(); }
+function openSheet(id){
+  const sel=$(id), pk=$("pk-"+id); if(pk.disabled) return;
+  sheetBack=pk;
+  const list=[...sel.options].map(o=>o.value);
+  const bg=document.createElement("div"); bg.className="sheet-bg";
+  bg.innerHTML=`<div class="sheet" role="dialog" aria-modal="true" aria-label="${pk.getAttribute("aria-label")}">
+    <div class="sheet-h"><span>${id==="from"?"Отдаю":"Получаю"}</span><button type="button" class="sheet-x" aria-label="Закрыть">×</button></div>
+    <div class="sheet-list">${list.map(c=>`<button type="button" class="opt" data-c="${c}" aria-pressed="${c===sel.value}">${icon(c)}<span style="min-width:0"><span class="c">${c}</span><span class="n">${CUR[c].name}</span></span></button>`).join("")}</div></div>`;
+  bg.addEventListener("click",e=>{
+    if(e.target===bg || e.target.closest(".sheet-x")) return closeSheet();
+    const b=e.target.closest(".opt"); if(!b) return;
+    closeSheet(); sel.value=b.dataset.c; sel.dispatchEvent(new Event("change"));
+  });
+  document.body.appendChild(bg); sheetEl=bg;
+  document.addEventListener("keydown",sheetKey);
+  (bg.querySelector('.opt[aria-pressed="true"]')||bg.querySelector(".opt")).focus();
+}
+$("pk-from").onclick=()=>openSheet("from");
+$("pk-to").onclick=()=>openSheet("to");
 function sync(){
   if(st.cash){ st.to="THB"; if(st.from==="THB") st.from="RUB"; }
   opts($("from"),FROM_LIST.filter(c=>c!==st.to),st.from); st.from=$("from").value;
   opts($("to"),(st.cash?["THB"]:TO_LIST).filter(c=>c!==st.from),st.to); st.to=$("to").value;
-  $("to").disabled=st.cash;
+  $("to").disabled=st.cash; $("pk-to").disabled=st.cash;
   $("m-give").setAttribute("aria-pressed",st.mode==="give");
   $("m-get").setAttribute("aria-pressed",st.mode==="get");
   $("w-acc").setAttribute("aria-pressed",!st.cash);
