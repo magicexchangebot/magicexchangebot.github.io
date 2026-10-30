@@ -175,7 +175,8 @@ function payPrice(c){
   if(c==="THB") return THB.bid*(1-THB.fee);   // выплата батами: мы продаём USDT по цене покупателей (bid)
   return PAY[c];
 }
-// Ступени: from — порог в валюте получения; mode mult = ×(1−p), div = ÷(1+p)
+// Ступени: from — порог в валюте получения.
+// mode mult = ×(1−p); mode sub (выплата батами) = цена продажи × (1 − комиссия − p), т.е. наценка вычитается вместе с комиссией
 let THB_GRIDS = {
   RUB:[[10000,.045],[25000,.0375],[50000,.03],[100000,.025]],
   USDT:[[10000,.04],[25000,.035],[50000,.03],[100000,.025]],
@@ -190,10 +191,11 @@ function rules(to,from){
     case "GEL": return {mode:"mult",min:true, t:[[500,.045],[1000,.04],[2500,.035],[5000,.03]]};
     case "IDR": return {mode:"mult",min:true, t:[[6e6,.04],[15e6,.035],[30e6,.03],[60e6,.025]]};
     case "USDT":return {mode:"mult",min:true, t:[[350,.04],[1000,.035],[1500,.03],[3000,.025]]};
-    case "THB": return {mode:"div", min:true, t:THB_GRIDS[from]||THB_GRIDS.def};
+    case "THB": return {mode:"sub", min:true, t:THB_GRIDS[from]||THB_GRIDS.def};
   }
 }
-const factor=(mode,p)=> mode==="div" ? 1/(1+p) : 1-p;
+// payPrice("THB") уже включает комиссию: bid×(1−fee). Множитель доводит итог до bid×(1−fee−p)
+const factor=(mode,p)=> mode==="sub" ? (1-THB.fee-p)/(1-THB.fee) : 1-p;
 
 // Расчёт: отдаю amount валюты from → сколько to
 function calcBase(from,to,amount){
@@ -229,7 +231,7 @@ function calc(from,to,amount,cash,noRound){
     return {...r,net,profit:r.U-net/r.price,tier:r.tier+(noRound?"":" · округл. до 100 ฿")};
   }
   const d=discFor(r.net); if(!d) return r;
-  const net=r.net*(1+d);
+  const net=r.net + r.U*THB.bid*d;   // скидка уменьшает наценку: bid×(1−fee−p+d)
   return {...r,net,profit:r.U-net/r.price,disc:d,tier:r.tier+` + скидка за перевод ${fmtPct(d)}`};
 }
 // Обратный расчёт: хочу получить target → сколько отдать (минимальная сумма)
