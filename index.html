@@ -144,11 +144,12 @@ summary{cursor:pointer;font-weight:600;font-size:14px}
 <script>
 // ---------- Котировки: бот Magic Exchange, пересчёт раз в час ----------
 const QUOTES_URL = "https://script.google.com/macros/s/AKfycbw6wktdcU8S7AwZpuFD2xOtCKekh65C-lFAnK9Y0nbXeadliWYGXd8u30AlQ7sOisdEYA/exec";
-// Запасные значения (26.10.2026), если бот недоступен
-let THB = { mid: 33.755, fee: 0.0025 };
-let BUY = { RUB: 80.5381*1.063, UAH: 47.207, TRY: 53.987, IDR: 18156.6, GEL: 2.818, EUR: 0.89125*1.0025 };
-let PAY = { RUB: 80.5381, UAH: 44.83, TRY: 53.987, IDR: 18156.6, GEL: 2.818 };
-let QUOTES_TIME = null, QUOTES_LIVE = false;
+// Только свежие котировки от бота. Запасных цифр нет: без свежего курса калькулятор не считает.
+const QUOTES_MAX_AGE = 2*60*60*1000;   // старше 2 часов — курс считается устаревшим
+let THB = null;                        // {bid, ask, fee}: Bitazza USDT/THB
+let BUY = {}, PAY = {};
+let QUOTES_TIME = null, QUOTES_LIVE = false, QUOTES_STATE = "loading";
+function quotesFresh(){ return QUOTES_LIVE && THB && QUOTES_TIME && (Date.now()-QUOTES_TIME.getTime()) < QUOTES_MAX_AGE; }
 const MIN_PROFIT = 11;
 
 const CUR = {
@@ -157,19 +158,21 @@ const CUR = {
   IDR:{name:"Рупия",flag:"🇮🇩",dec:0}, EUR:{name:"Евро",flag:"🇪🇺",dec:2},
   THB:{name:"Бат",flag:"🇹🇭",dec:0},   USDT:{name:"Tether",flag:"",dec:2}
 };
-let FROM_LIST = ["RUB","UAH","TRY","GEL","IDR","EUR","THB","USDT"];
-let TO_LIST   = ["THB","RUB","UAH","TRY","GEL","IDR","USDT"]; // евро пока не выплачиваем
+const ALL_FROM = ["RUB","UAH","TRY","GEL","IDR","EUR","THB","USDT"];
+const ALL_TO   = ["THB","RUB","UAH","TRY","GEL","IDR","USDT"];
+let FROM_LIST = ALL_FROM.slice();
+let TO_LIST   = ALL_TO.slice(); // евро пока не выплачиваем
 
 // Шаг 1: сколько X стоит 1 USDT (себестоимость покупки USDT)
 function buyCost(c){
   if(c==="USDT") return 1;
-  if(c==="THB") return THB.mid*(1+THB.fee);
+  if(c==="THB") return THB.ask*(1+THB.fee);   // клиент платит батами: мы покупаем USDT по цене продавцов (ask)
   return BUY[c];
 }
 // Шаг 2: сколько Y получаю за 1 USDT (до наценки)
 function payPrice(c){
   if(c==="USDT") return 1;
-  if(c==="THB") return THB.mid*(1-THB.fee);
+  if(c==="THB") return THB.bid*(1-THB.fee);   // выплата батами: мы продаём USDT по цене покупателей (bid)
   return PAY[c];
 }
 // Ступени: from — порог в валюте получения; mode mult = ×(1−p), div = ÷(1+p)
@@ -295,11 +298,19 @@ function sync(){
 function update(){
   const from=st.from,to=st.to;
   let give,res;
-  if(st.mode==="give"){ give=parse($("amtFrom").value); res=give?calc(from,to,give,st.cash):null; }
-  else { let want=parse($("amtTo").value); if(want&&st.cash&&to==="THB") want=Math.round(want/100)*100; st.wantR=want; if(want){give=calcReverse(from,to,want,st.cash); res=calc(from,to,give,st.cash,true);} }
   $("resLbl").textContent = st.mode==="give" ? "Вы получите" : "Нужно отдать";
   const note=$("note"), hint=$("hint"), hint2=$("hint2");
   note.hidden=true; hint.hidden=true; hint2.hidden=true; $("promo").hidden=true;
+  if(!quotesFresh()){
+    if(QUOTES_LIVE && QUOTES_STATE==="ok"){ QUOTES_STATE="stale"; setFoot(); }
+    $("big").textContent="—";
+    $("rate").textContent = QUOTES_STATE==="loading" ? "Загружаю актуальные курсы…" : "Актуальный курс сейчас недоступен";
+    if(QUOTES_STATE!=="loading"){ note.textContent="Напишите менеджеру — он назовёт точный курс на сейчас."; note.hidden=false; }
+    if(st.mode==="give") $("amtTo").value=""; else $("amtFrom").value="";
+    $("check").innerHTML=""; setCta(null); return;
+  }
+  if(st.mode==="give"){ give=parse($("amtFrom").value); res=give?calc(from,to,give,st.cash):null; }
+  else { let want=parse($("amtTo").value); if(want&&st.cash&&to==="THB") want=Math.round(want/100)*100; st.wantR=want; if(want){give=calcReverse(from,to,want,st.cash); res=calc(from,to,give,st.cash,true);} }
   if(!res||res.tooSmall){
     $("big").textContent="—"; $("rate").textContent= res&&res.tooSmall ? "Сумма слишком мала для обмена" : "Введите сумму";
     if(st.mode==="give") $("amtTo").value=""; else $("amtFrom").value="";
@@ -377,14 +388,19 @@ $("amtFrom").value="100 000";
 sync();
 function setFoot(){
   const f=$("foot");
-  if(QUOTES_LIVE && QUOTES_TIME){
+  if(quotesFresh()){
     const t=QUOTES_TIME.toLocaleString("ru-RU",{timeZone:"Asia/Bangkok",day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"});
     f.textContent="Курсы обновлены "+t+" (время Таиланда). Окончательный курс подтвердит менеджер.";
-  } else f.textContent="Не удалось загрузить актуальные курсы. Расчёт примерный — точный курс подтвердит менеджер.";
+  } else if(QUOTES_STATE==="loading") f.textContent="Загружаю актуальные курсы…";
+  else f.textContent="Актуальные курсы сейчас недоступны, расчёт временно отключён. Попробуйте чуть позже или напишите менеджеру.";
 }
 function applyQuotes(q){
-  if(!q || !q.thb || !q.cur) return false;
-  THB={mid:Number(q.thb.mid),fee:Number(q.thb.fee)/100};
+  if(!q || !q.thb || !q.cur || !q.updated) return false;
+  const upd=new Date(q.updated);
+  if(!(upd.getTime()>0) || Date.now()-upd.getTime()>=QUOTES_MAX_AGE) return false;   // устаревшие котировки не берём
+  const bid=Number(q.thb.bid), ask=Number(q.thb.ask), fee=Number(q.thb.fee)/100;
+  if(!(bid>0 && ask>=bid && fee>=0)) return false;
+  THB={bid,ask,fee};
   const c=q.cur, buy={}, pay={};
   Object.keys(c).forEach(k=>{ if(c[k] && c[k].buy>0) buy[k]=Number(c[k].buy); });
   if(c.RUB && c.RUB.cbr>0) pay.RUB=Number(c.RUB.cbr);
@@ -392,15 +408,22 @@ function applyQuotes(q){
   ["TRY","IDR","GEL"].forEach(k=>{ if(buy[k]) pay[k]=buy[k]; });
   BUY=buy; PAY=pay;
   if(q.tiers) Object.keys(q.tiers).forEach(k=>{ if(q.tiers[k] && q.tiers[k].length) THB_GRIDS[k]=q.tiers[k]; });
-  FROM_LIST=FROM_LIST.filter(k=>k==="THB"||k==="USDT"||BUY[k]>0);
-  TO_LIST=TO_LIST.filter(k=>k==="THB"||k==="USDT"||PAY[k]>0);
-  if(!FROM_LIST.includes(st.from)) st.from="THB";
+  FROM_LIST=ALL_FROM.filter(k=>k==="THB"||k==="USDT"||BUY[k]>0);
+  TO_LIST=ALL_TO.filter(k=>k==="THB"||k==="USDT"||PAY[k]>0);
+  if(!FROM_LIST.includes(st.from)) st.from=FROM_LIST.includes("RUB")?"RUB":"USDT";
   if(!TO_LIST.includes(st.to)) st.to="THB";
-  QUOTES_TIME=q.updated?new Date(q.updated):null; QUOTES_LIVE=true;
+  QUOTES_TIME=upd; QUOTES_LIVE=true;
   return true;
 }
-fetch(QUOTES_URL).then(r=>r.json()).then(q=>{ applyQuotes(q); setFoot(); sync(); })
-  .catch(()=>{ setFoot(); });
+function loadQuotes(){
+  fetch(QUOTES_URL,{cache:"no-store"}).then(r=>r.json()).then(q=>{
+    if(applyQuotes(q)) QUOTES_STATE="ok";
+    else { QUOTES_LIVE=false; THB=null; QUOTES_STATE="fail"; }
+  }).catch(()=>{ QUOTES_LIVE=false; THB=null; QUOTES_STATE="fail"; })
+    .finally(()=>{ setFoot(); sync(); });
+}
+loadQuotes();
+setInterval(loadQuotes, 10*60*1000);   // пока калькулятор открыт — подтягиваем свежие курсы каждые 10 минут
 </script>
 <script>
 // Telegram Mini App: тема, раскрытие на весь экран, ссылки в Telegram
