@@ -220,7 +220,7 @@ function calcBase(from,to,amount){
   return {U,price,net,profit,tier:`мин. ${MIN_PROFIT} USDT (ниже ${fmtNum(t[0][0],0)} ${to})`,idx:-1,r};
 }
 // Скидка за перевод бат на счёт (по сумме к получению)
-const ACC_DISC=[[15000,.005],[50000,.0025],[150000,.0015]];
+const ACC_DISC=[[25000,.0025],[150000,.0015]];   // от 25 000 ฿ — 0,25%, от 150 000 ฿ — 0,15%
 function discFor(net){let d=0;for(const [th,v] of ACC_DISC) if(net>=th) d=v;return d;}
 function calc(from,to,amount,cash,noRound){
   const r=calcBase(from,to,amount);
@@ -330,11 +330,11 @@ function update(){
   // подсказка о следующей ступени
   const t=res.r.t, nx=res.idx+1;
   let next = nx<t.length ? t[nx][0] : Infinity;
-  if(to==="THB" && !st.cash && net<15000 && 15000<next) next=15000;
+  const d0=ACC_DISC[0][0]; if(to==="THB" && !st.cash && net<d0 && d0<next) next=d0;
   if(next<Infinity){hint.textContent=`От ${fmtAmt(next,to)} к получению курс выгоднее`; hint.hidden=false;}
   if(from==="THB"){note.textContent="Способ передачи бат обсудим в переписке перед обменом."; note.hidden=false;}
   if(st.cash){
-    const fallback="Переводом на счёт от 15 000 ฿ — скидка 0,5%";
+    const fallback=`Переводом на счёт от ${fmtNum(ACC_DISC[0][0],0)} ฿ — скидка ${fmtPct(ACC_DISC[0][1])}`;
     if(st.mode==="give"){ const alt=calc(from,to,give,false), diff=alt.net-net;
       hint2.textContent = diff>=1 ? `Переводом на счёт получите на ${fmtAmt(diff,to)} больше (скидка ${fmtPct(alt.disc)})` : fallback;
     } else { const g2=calcReverse(from,to,parse($("amtTo").value),false), diff=give-g2;
