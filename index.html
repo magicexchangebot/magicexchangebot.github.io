@@ -146,7 +146,7 @@ summary{cursor:pointer;font-weight:600;font-size:14px}
 const QUOTES_URL = "https://script.google.com/macros/s/AKfycbw6wktdcU8S7AwZpuFD2xOtCKekh65C-lFAnK9Y0nbXeadliWYGXd8u30AlQ7sOisdEYA/exec";
 // Только свежие котировки от бота. Запасных цифр нет: без свежего курса калькулятор не считает.
 const QUOTES_MAX_AGE = 2*60*60*1000;   // старше 2 часов — курс считается устаревшим
-let THB = null;                        // {bid, ask, fee}: Bitazza USDT/THB
+let THB = null;                        // {bid, fee, ex}: лучшая цена продажи USDT (Bitazza или Bitkub); {ask, askFee}: покупка USDT
 let BUY = {}, PAY = {};
 let QUOTES_TIME = null, QUOTES_LIVE = false, QUOTES_STATE = "loading";
 function quotesFresh(){ return QUOTES_LIVE && THB && QUOTES_TIME && (Date.now()-QUOTES_TIME.getTime()) < QUOTES_MAX_AGE; }
@@ -166,7 +166,7 @@ let TO_LIST   = ALL_TO.slice(); // евро пока не выплачиваем
 // Шаг 1: сколько X стоит 1 USDT (себестоимость покупки USDT)
 function buyCost(c){
   if(c==="USDT") return 1;
-  if(c==="THB") return THB.ask*(1+THB.fee);   // клиент платит батами: мы покупаем USDT по цене продавцов (ask)
+  if(c==="THB") return THB.ask*(1+THB.askFee);   // клиент платит батами: мы покупаем USDT по цене продавцов (ask)
   return BUY[c];
 }
 // Шаг 2: сколько Y получаю за 1 USDT (до наценки)
@@ -348,7 +348,7 @@ function update(){
     [`Цена 1 USDT в ${from}`,fmtNum(buyCost(from),4)],
     ["USDT (себестоимость)",fmtNum(res.U,2)],
     ["sep"],
-    [`Цена 1 USDT в ${to}`,fmtNum(res.price,4)],
+    [`Цена 1 USDT в ${to}`,fmtNum(res.price,4)+(to==="THB"?` (${THB.ex})`:"")],
     ["Ступень",res.tier],
     ["Получает",fmtAmt(net,to)],
     ["Прибыль, USDT",fmtNum(res.profit,2)]
@@ -401,8 +401,9 @@ function applyQuotes(q){
   const upd=new Date(q.updated);
   if(!(upd.getTime()>0) || Date.now()-upd.getTime()>=QUOTES_MAX_AGE) return false;   // устаревшие котировки не берём
   const bid=Number(q.thb.bid), ask=Number(q.thb.ask), fee=Number(q.thb.fee)/100;
-  if(!(bid>0 && ask>=bid && fee>=0)) return false;
-  THB={bid,ask,fee};
+  const askFee=(q.thb.askFee!=null ? Number(q.thb.askFee) : Number(q.thb.fee))/100;
+  if(!(bid>0 && ask>0 && fee>=0 && askFee>=0)) return false;   // биржи продажи и покупки могут быть разными
+  THB={bid,ask,fee,askFee,ex:q.thb.ex||"Bitazza"};
   const c=q.cur, buy={}, pay={};
   Object.keys(c).forEach(k=>{ if(c[k] && c[k].buy>0) buy[k]=Number(c[k].buy); });
   if(c.RUB && c.RUB.cbr>0) pay.RUB=Number(c.RUB.cbr);
