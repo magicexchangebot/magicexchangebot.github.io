@@ -186,7 +186,7 @@ let THB_GRIDS = {
 function rules(to,from){
   switch(to){
     case "RUB": return {mode:"mult",min:false,t:[[0,.05],[10000,.035],[50000,.03],[100000,.025],[150000,.02]]};
-    case "UAH": return {mode:"mult",min:true, t:[[0,.04],[10000,.035],[30000,.03],[100000,.025]]};
+    case "UAH": return {mode:"mult",min:true, t:[[0,.045],[15000,.04],[50000,.035]]};
     case "TRY": return {mode:"mult",min:true, t:[[5000,.05],[15000,.04],[50000,.035],[100000,.03],[150000,.025]]};
     case "GEL": return {mode:"mult",min:true, t:[[500,.045],[1000,.04],[2500,.035],[5000,.03]]};
     case "IDR": return {mode:"mult",min:true, t:[[6e6,.04],[15e6,.035],[30e6,.03],[60e6,.025]]};
