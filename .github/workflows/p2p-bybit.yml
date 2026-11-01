@@ -1,0 +1,83 @@
+# Каждые 15 минут снимает объявления Bybit P2P (покупка USDT) по GEL, UAH, TRY, IDR
+# и кладёт их в ветку data (файл p2p-bybit.json). Бот Magic Exchange читает этот файл,
+# потому что серверам Google Bybit напрямую не отвечает.
+name: p2p-bybit
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/p2p-bybit.yml']
+permissions:
+  contents: write
+concurrency:
+  group: p2p-bybit
+  cancel-in-progress: false
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fetch Bybit P2P
+        run: |
+          cat > fetch.py <<'PY'
+          import json, time, urllib.request
+          HOSTS = ['https://api2.bytick.com/fiat/otc/', 'https://api2.bybit.com/fiat/otc/', 'https://www.bybitglobal.com/x-api/fiat/otc/']
+          def post(path, body):
+              last = None
+              for h in HOSTS:
+                  try:
+                      req = urllib.request.Request(h + path, data=json.dumps(body).encode(),
+                          headers={'content-type': 'application/json', 'User-Agent': 'Mozilla/5.0'})
+                      with urllib.request.urlopen(req, timeout=20) as r:
+                          j = json.load(r)
+                      if j.get('ret_code') == 0:
+                          return j
+                      last = str(j)[:200]
+                  except Exception as e:
+                      last = str(e)[:200]
+              raise RuntimeError(last)
+          out = {'updated': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                 'source': 'Bybit P2P, объявления продажи USDT (цена покупки USDT)',
+                 'payments': {}, 'fiat': {}, 'errors': {}}
+          pay = {}
+          try:
+              r = post('configuration/queryAllPaymentList', {}).get('result') or {}
+              lst = r.get('paymentConfigVo') or r.get('paymentConfigs') or (r if isinstance(r, list) else [])
+              pay = {str(x['paymentType']): x['paymentName'] for x in lst}
+          except Exception as e:
+              out['errors']['payments'] = str(e)[:200]
+          used = set()
+          for f in ['GEL', 'UAH', 'TRY', 'IDR']:
+              ads = []
+              try:
+                  for page in (1, 2, 3):
+                      j = post('item/online', {'userId': '', 'tokenId': 'USDT', 'currencyId': f, 'payment': [],
+                               'side': '1', 'size': '50', 'page': str(page), 'amount': '', 'authMaker': False, 'canTrade': False})
+                      items = (j.get('result') or {}).get('items') or []
+                      for i in items:
+                          ads.append([float(i['price']), [str(p) for p in (i.get('payments') or [])],
+                                      float(i.get('minAmount') or 0), float(i.get('maxAmount') or 0)])
+                      if len(items) < 50:
+                          break
+                  ads.sort(key=lambda a: a[0])
+                  out['fiat'][f] = ads
+                  for a in ads:
+                      used.update(a[1])
+              except Exception as e:
+                  out['errors'][f] = str(e)[:200]
+          out['payments'] = {k: v for k, v in pay.items() if k in used}
+          json.dump(out, open('p2p-bybit.json', 'w'), ensure_ascii=False, separators=(',', ':'))
+          print({k: len(v) for k, v in out['fiat'].items()}, out['errors'])
+          PY
+          python3 fetch.py
+      - name: Publish to data branch
+        run: |
+          mkdir pub && mv p2p-bybit.json pub/ && cd pub
+          git init -q -b data
+          git config user.name magicexchangebot
+          git config user.email magicexchangebot@users.noreply.github.com
+          git add p2p-bybit.json
+          git commit -qm "Bybit P2P $(date -u +%FT%TZ)"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" data
