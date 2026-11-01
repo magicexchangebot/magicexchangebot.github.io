@@ -225,10 +225,10 @@ function discFor(net){let d=0;for(const [th,v] of ACC_DISC) if(net>=th) d=v;retu
 function calc(from,to,amount,cash,noRound){
   const r=calcBase(from,to,amount);
   if(r.tooSmall||to!=="THB") return r;
-  if(cash){ // банкоматы выдают от 100 ฿ — округляем всегда ВНИЗ до сотни, чтобы округление шло в пользу обменника
-    const net=noRound?r.net:Math.floor(r.net/100+1e-9)*100;
+  if(cash){ // банкоматы выдают от 100 ฿ — округляем до сотни: до 49 вниз, от 50 вверх
+    const net=noRound?r.net:Math.round(r.net/100)*100;
     if(net<100) return {...r,net:0,tooSmall:true};
-    return {...r,net,profit:r.U-net/r.price,tier:r.tier+(noRound?"":" · округл. вниз до 100 ฿")};
+    return {...r,net,profit:r.U-net/r.price,tier:r.tier+(noRound?"":" · округл. до 100 ฿")};
   }
   const d=discFor(r.net); if(!d) return r;
   const net=r.net + r.U*THB.bid*d;   // скидка уменьшает наценку: bid×(1−fee−p+d)
@@ -318,9 +318,7 @@ function update(){
     if(st.mode==="give") $("amtTo").value=""; else $("amtFrom").value="";
     $("check").innerHTML=""; setCta(null); return;
   }
-  let net=res.net;
-  // «Отдаю сумму»: сумму к получению округляем вниз до знаков валюты (в пользу обменника)
-  if(st.mode==="give"){ const k=Math.pow(10,CUR[to].dec); net=Math.floor(net*k+1e-9)/k; }
+  const net=res.net;
   if(st.mode==="give"){ $("amtTo").value=fmtNum(net,CUR[to].dec); $("big").textContent=fmtAmt(net,to); }
   else { const g=Math.ceil(give*Math.pow(10,CUR[from].dec))/Math.pow(10,CUR[from].dec); give=g; $("amtFrom").value=fmtNum(g,CUR[from].dec); $("big").textContent=fmtAmt(g,from); }
   // курс: «1 более дорогая = N более дешёвой»
