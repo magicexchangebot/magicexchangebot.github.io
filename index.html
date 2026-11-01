@@ -150,7 +150,7 @@ let THB = null;                        // {bid, fee, ex}: лучшая цена 
 let BUY = {}, PAY = {};
 let QUOTES_TIME = null, QUOTES_LIVE = false, QUOTES_STATE = "loading";
 function quotesFresh(){ return QUOTES_LIVE && THB && QUOTES_TIME && (Date.now()-QUOTES_TIME.getTime()) < QUOTES_MAX_AGE; }
-const MIN_PROFIT = 11;
+const MIN_PROFIT = 13;   // минимальная прибыль со сделки, USDT
 
 const CUR = {
   RUB:{name:"Рубль",flag:"🇷🇺",dec:0}, UAH:{name:"Гривна",flag:"🇺🇦",dec:2},
@@ -213,7 +213,7 @@ function calcBase(from,to,amount){
       return {U,price,net,profit,tier,idx:i,r};
     }
   }
-  // Ниже первой ступени: прибыль не меньше 12 USDT
+  // Ниже первой ступени: прибыль не меньше MIN_PROFIT USDT
   const p0=t[0][1], profit=Math.max(MIN_PROFIT, U*(1-factor(r.mode,p0)));
   const net=(U-profit)*price;
   if(net<=0) return {U,price,net:0,tooSmall:true};
