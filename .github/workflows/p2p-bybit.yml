@@ -72,12 +72,18 @@ jobs:
           print({k: len(v) for k, v in out['fiat'].items()}, out['errors'])
           PY
           python3 fetch.py
+      - name: Snapshot calculator quotes
+        # Копия того, что калькулятор получает от бота (для проверки расчётов). Сбой не мешает Bybit.
+        continue-on-error: true
+        run: |
+          curl -sSfL --max-time 60 'https://script.google.com/macros/s/AKfycbw6wktdcU8S7AwZpuFD2xOtCKekh65C-lFAnK9Y0nbXeadliWYGXd8u30AlQ7sOisdEYA/exec' -o q.json
+          python3 -c "import json;json.load(open('q.json'))" && mv q.json calc-quotes.json
       - name: Publish to data branch
         run: |
-          mkdir pub && mv p2p-bybit.json pub/ && cd pub
+          mkdir pub && mv p2p-bybit.json pub/ && { [ -f calc-quotes.json ] && mv calc-quotes.json pub/ || true; } && cd pub
           git init -q -b data
           git config user.name magicexchangebot
           git config user.email magicexchangebot@users.noreply.github.com
-          git add p2p-bybit.json
+          git add -A
           git commit -qm "Bybit P2P $(date -u +%FT%TZ)"
           git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" data
