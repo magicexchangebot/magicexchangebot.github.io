@@ -323,6 +323,13 @@ function update(){
   if(st.mode==="give"){ const k=Math.pow(10,CUR[to].dec); net=Math.floor(net*k+1e-9)/k; }
   if(st.mode==="give"){ $("amtTo").value=fmtNum(net,CUR[to].dec); $("big").textContent=fmtAmt(net,to); }
   else { const g=Math.ceil(give*Math.pow(10,CUR[from].dec))/Math.pow(10,CUR[from].dec); give=g; $("amtFrom").value=fmtNum(g,CUR[from].dec); $("big").textContent=fmtAmt(g,from); }
+  // Наличные при «Отдаю сумму»: после округления вниз до сотни часть суммы клиента лишняя.
+  // Считаем, сколько ровно нужно отдать за эти баты — курс тогда всегда равен курсу ступени.
+  let giveIn=give, extra=0;
+  if(st.mode==="give" && st.cash && to==="THB"){
+    const k=Math.pow(10,CUR[from].dec), ge=Math.ceil(calcReverse(from,to,net,true)*k-1e-9)/k;
+    if(ge<give-1e-9){ extra=give-ge; give=ge; }
+  }
   // курс: «1 более дорогая = N более дешёвой»
   const valFrom=1/buyCost(from), valTo=1/payPrice(to);
   let rateTxt;
@@ -335,12 +342,17 @@ function update(){
   const d0=ACC_DISC[0][0]; if(to==="THB" && !st.cash && net<d0 && d0<next) next=d0;
   if(next<Infinity){hint.textContent=`От ${fmtAmt(next,to)} к получению курс выгоднее`; hint.hidden=false;}
   if(from==="THB"){note.textContent="Способ передачи бат обсудим в переписке перед обменом."; note.hidden=false;}
+  if(extra>=Math.pow(10,-CUR[from].dec)){
+    const nx=net+100, gx=Math.ceil(calcReverse(from,to,nx,true)*Math.pow(10,CUR[from].dec)-1e-9)/Math.pow(10,CUR[from].dec);
+    note.textContent=`Наличные выдаём кратно 100 ฿: за ${fmtAmt(net,to)} достаточно отдать ${fmtAmt(give,from)}. Чтобы получить ${fmtAmt(nx,to)}, отдайте ${fmtAmt(gx,from)}.`;
+    note.hidden=false;
+  }
   if(st.cash){
     const fallback=`Переводом на счёт от ${fmtNum(ACC_DISC[0][0],0)} ฿ — скидка ${fmtPct(ACC_DISC[0][1])}`;
-    if(st.mode==="give"){ const alt=calc(from,to,give,false), diff=alt.net-net;
-      hint2.textContent = diff>=1 ? `Переводом на счёт получите на ${fmtAmt(diff,to)} больше (скидка ${fmtPct(alt.disc)})` : fallback;
+    if(st.mode==="give"){ const alt=calc(from,to,giveIn,false), diff=alt.net-net;
+      hint2.textContent = diff>=1 ? `Переводом на счёт получите на ${fmtAmt(diff,to)} больше${alt.disc?` (скидка ${fmtPct(alt.disc)})`:""}` : fallback;
     } else { const g2=calcReverse(from,to,parse($("amtTo").value),false), diff=give-g2;
-      hint2.textContent = diff>=Math.pow(10,-CUR[from].dec) ? `Переводом на счёт нужно отдать на ${fmtAmt(diff,from)} меньше (скидка ${fmtPct(calc(from,to,g2,false).disc||0)})` : fallback; }
+      hint2.textContent = diff>=Math.pow(10,-CUR[from].dec) ? `Переводом на счёт нужно отдать на ${fmtAmt(diff,from)} меньше${calc(from,to,g2,false).disc?` (скидка ${fmtPct(calc(from,to,g2,false).disc)})`:""}` : fallback; }
     hint2.hidden=false;
   }
   $("promo").hidden = hint.hidden && hint2.hidden;
@@ -353,7 +365,7 @@ function update(){
     [`Цена 1 USDT в ${to}`,fmtNum(res.price,4)+(to==="THB"?` (${THB.ex})`:"")],
     ["Ступень",res.tier],
     ["Получает",fmtAmt(net,to)],
-    ["Прибыль, USDT",fmtNum(res.profit,2)]
+    ["Прибыль, USDT",fmtNum(give/buyCost(from)-net/res.price,2)]
   ];
   $("check").innerHTML=rows.map(r=>r[0]==="sep"?'<div class="sep"></div>':`<dt>${r[0]}</dt><dd>${r[1]}</dd>`).join("");
   setCta({give,from,net,to});
