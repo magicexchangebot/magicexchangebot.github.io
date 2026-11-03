@@ -5,6 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+// iMe Ads: подсчёт обращений из рекламы. Ключ публичный (не секрет), берётся в @iMe_ads_bot → Конверсии → SDK для сайта.
+// Пока ключ пустой — скрипт не грузится и ничего не отправляет.
+window.IMEADS_PK = "";
+window.iMeAdsLayer = window.iMeAdsLayer || [];
+function imeads(){ iMeAdsLayer.push(arguments); }
+if (window.IMEADS_PK) {
+  (function(){
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://ad.api.imem.me/static/pixel-v2.min.js';
+    s.setAttribute('data-pk', window.IMEADS_PK);
+    document.head.appendChild(s);
+  })();
+}
+</script>
 <title>Калькулятор Magic Exchange</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -131,7 +147,7 @@ summary{cursor:pointer;font-weight:600;font-size:14px}
     <div class="note promo" id="promo" hidden><div id="hint" hidden></div><div id="hint2" hidden></div></div>
     <div class="note" id="note" hidden></div>
     <a class="cta" id="cta" href="https://t.me/goahouserent" target="_blank" rel="noopener">Оформить обмен в Telegram</a>
-    <div class="contact"><span>Менеджер: <a id="mgr" class="mgr" href="https://t.me/goahouserent" target="_blank" rel="noopener">Александр</a></span></div>
+    <div class="contact"><span>Менеджер: <a id="mgr" class="mgr" href="https://t.me/goahouserent" target="_blank" rel="noopener">Александр</a></span><a id="chan" class="mgr" href="https://t.me/magicexchangechannel" target="_blank" rel="noopener">Курсы каждый день</a></div>
   </section>
 
   <details id="dbg">
@@ -438,9 +454,24 @@ setInterval(loadQuotes, 10*60*1000);   // пока калькулятор отк
   document.addEventListener('click', function(e){
     var a = e.target.closest && e.target.closest('a[href^="https://t.me/"]');
     if(!a || !tg.openTelegramLink) return;
-    e.preventDefault(); tg.openTelegramLink(a.href);
+    e.preventDefault();
+    var href = a.href;
+    // Обращение к менеджеру — это «лид» для iMe Ads. Даём пикселю долю секунды отправить событие.
+    if ((a.id === 'cta' || a.id === 'mgr') && window.IMEADS_PK) {
+      try { imeads('lead'); } catch(err){}
+      setTimeout(function(){ tg.openTelegramLink(href); }, 400);
+      return;
+    }
+    tg.openTelegramLink(href);
   });
 })();
+// Вне Telegram (обычный браузер) тоже отмечаем обращение
+document.addEventListener('click', function(e){
+  var a = e.target.closest && e.target.closest('#cta, #mgr');
+  if (a && window.IMEADS_PK && !(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData)) {
+    try { imeads('lead'); } catch(err){}
+  }
+});
 // Панель проверки видна только по ссылке с #check
 document.getElementById('dbg').hidden = location.hash !== '#check';
 </script>
