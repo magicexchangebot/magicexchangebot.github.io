@@ -91,6 +91,9 @@ input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible,su
 .cta{display:block;text-align:center;text-decoration:none;background:var(--accent);color:var(--accent-fg);font-weight:700;border-radius:14px;padding:14px}
 .btns2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .btn2{display:block;min-width:0;text-align:center;min-height:44px;box-sizing:border-box;padding:12px 6px;border:1.5px solid var(--accent);border-radius:12px;color:var(--accent);font-weight:700;font-size:14px;text-decoration:none;line-height:1.2;white-space:normal;overflow:visible;text-overflow:clip}
+.fb{display:flex;flex-direction:column;gap:8px}
+.fb-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fb-row button,.fb-row a{font:inherit;font-size:14px;font-weight:700;min-height:44px;box-sizing:border-box;padding:10px 6px;border:1.5px solid var(--warn);border-radius:12px;background:transparent;color:var(--warn);text-align:center;text-decoration:none;cursor:pointer}
 .mgr{color:var(--accent);font-weight:700;text-decoration:underline;text-underline-offset:3px}
 .contact{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
 .contact button{font:inherit;font-size:13px;border:1px solid var(--line);background:transparent;color:var(--fg);border-radius:10px;padding:6px 10px;cursor:pointer}
@@ -150,11 +153,16 @@ summary{cursor:pointer;font-weight:600;font-size:14px}
     <div class="note" id="note" hidden></div>
     <a class="cta" id="cta" href="https://t.me/goahouserent" target="_blank" rel="noopener">Оформить обмен в Telegram</a>
     <div class="btns2"><a id="mgr" class="btn2" href="https://t.me/goahouserent" target="_blank" rel="noopener">💬 Написать менеджеру</a><a id="chan" class="btn2" href="https://t.me/magicexchangechannel" target="_blank" rel="noopener">ℹ️ Узнать больше</a></div>
+    <div class="note fb" id="fb" hidden>
+      <div id="fbTxt">Если чат не открылся — скопируйте заявку и отправьте её менеджеру <b>@goahouserent</b>.</div>
+      <div class="fb-row"><button type="button" id="fbCopy">📋 Скопировать заявку</button><a id="fbOpen" href="https://t.me/goahouserent" target="_blank" rel="noopener">Открыть чат</a></div>
+    </div>
   </section>
 
   <details id="dbg">
     <summary>Проверка расчёта (клиент этого не увидит)</summary>
     <dl class="check" id="check"></dl>
+    <div class="check" id="tgInfo"></div>
   </details>
   <p class="foot" id="foot">Загружаю актуальные курсы…</p>
 </div>
@@ -448,23 +456,54 @@ setInterval(loadQuotes, 10*60*1000);   // пока калькулятор отк
 </script>
 <script>
 // Telegram Mini App: тема, раскрытие на весь экран, ссылки в Telegram
+// Копирование текста: сначала современный способ, затем старый (для старых WebView)
+function copyText(t){
+  var ok=false;
+  try{ var ta=document.createElement('textarea'); ta.value=t; ta.setAttribute('readonly',''); ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0,t.length); ok=document.execCommand('copy'); document.body.removeChild(ta); }catch(e){}
+  try{ if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).catch(function(){}); ok=true; } }catch(e){}
+  return ok;
+}
+// Запасной блок: показываем после нажатия, на случай если чат не открылся (старые версии Telegram)
+var fbTimer=null;
+function showFallback(copied){
+  var fb=document.getElementById('fb'); if(!fb) return;
+  document.getElementById('fbTxt').innerHTML = copied && reqText
+    ? 'Если чат не открылся — заявка уже скопирована. Откройте чат с <b>@goahouserent</b> и вставьте её.'
+    : 'Если чат не открылся — скопируйте заявку и отправьте её менеджеру <b>@goahouserent</b>.';
+  fb.hidden=false;
+}
+document.getElementById('fbCopy').addEventListener('click', function(){
+  var t = reqText || 'Здравствуйте! Хочу обменять валюту. Расчёт из калькулятора Magic Exchange.';
+  var b=this; b.textContent = copyText(t) ? '✅ Скопировано' : 'Не удалось скопировать';
+  setTimeout(function(){ b.textContent='📋 Скопировать заявку'; }, 2500);
+});
 (function(){
   var tg = window.Telegram && window.Telegram.WebApp;
+  var info=document.getElementById('tgInfo');
+  if(info) info.textContent = tg ? ('Telegram: '+(tg.platform||'?')+', Bot API '+(tg.version||'?')) : 'Открыто не в Telegram';
   if(!tg || !tg.initData && !tg.platform) return;
   try{ tg.ready(); tg.expand(); }catch(e){}
   try{ if(tg.colorScheme) document.documentElement.setAttribute('data-theme', tg.colorScheme); }catch(e){}
   document.addEventListener('click', function(e){
     var a = e.target.closest && e.target.closest('a[href^="https://t.me/"]');
-    if(!a || !tg.openTelegramLink) return;
-    e.preventDefault();
+    if(!a) return;
     var href = a.href;
-    // Обращение к менеджеру — это «лид» для iMe Ads. Даём пикселю долю секунды отправить событие.
-    if ((a.id === 'cta' || a.id === 'mgr') && window.IMEADS_PK) {
-      try { imeads('lead'); } catch(err){}
-      setTimeout(function(){ tg.openTelegramLink(href); }, 400);
+    var isLead = (a.id === 'cta' || a.id === 'mgr');
+    // Запасная кнопка «Открыть чат»: другой путь — через openLink (браузер → Telegram), без текста заявки
+    if (a.id === 'fbOpen') {
+      if (tg.openLink) { e.preventDefault(); try{ tg.openLink(href); }catch(err){ location.href = href; } }
       return;
     }
-    tg.openTelegramLink(href);
+    if(!tg.openTelegramLink) return;          // нет метода — пусть сработает обычная ссылка
+    e.preventDefault();
+    var copied = false;
+    if (isLead) {
+      if (reqText) copied = copyText(reqText);  // копируем заявку сразу, пока идёт нажатие
+      if (window.IMEADS_PK) { try { imeads('lead'); } catch(err){} }  // лид для iMe Ads, без ожидания
+    }
+    // Открываем чат сразу в момент нажатия (задержка ломала переход в части клиентов)
+    try { tg.openTelegramLink(href); } catch(err) { location.href = href; }
+    if (isLead) { clearTimeout(fbTimer); fbTimer = setTimeout(function(){ showFallback(copied); }, 1500); }
   });
 })();
 // Вне Telegram (обычный браузер) тоже отмечаем обращение
