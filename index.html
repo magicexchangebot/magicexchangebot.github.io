@@ -176,7 +176,7 @@ let THB = null;                        // {bid, fee, ex}: лучшая цена 
 let BUY = {}, PAY = {};
 let QUOTES_TIME = null, QUOTES_LIVE = false, QUOTES_STATE = "loading";
 function quotesFresh(){ return QUOTES_LIVE && THB && QUOTES_TIME && (Date.now()-QUOTES_TIME.getTime()) < QUOTES_MAX_AGE; }
-const MIN_PROFIT = 13;   // минимальная прибыль со сделки, USDT
+const MIN_PROFIT = 14.5; // минимальная прибыль со сделки, USDT — на всех ступенях, после скидки и округления
 
 const CUR = {
   RUB:{name:"Рубль",flag:"🇷🇺",dec:0}, UAH:{name:"Гривна",flag:"🇺🇦",dec:2},
@@ -232,8 +232,8 @@ function calcBase(from,to,amount){
     let net = U*price*factor(r.mode,p);
     if(net>=th){
       let tier = `${fmtPct(p)} (от ${fmtNum(th,0)} ${to})`, profit = U - net/price;
-      if(i===0 && th===0 && r.min && profit<MIN_PROFIT){ // первая ступень без нижней границы (гривна)
-        profit = MIN_PROFIT; net=(U-profit)*price; tier = `мин. ${MIN_PROFIT} USDT`;
+      if(r.min && profit<MIN_PROFIT){ // на любой ступени прибыль не меньше минимума
+        profit = MIN_PROFIT; net=(U-profit)*price; tier = `мин. ${fmtNum(MIN_PROFIT,1)} USDT`;
       }
       if(net<=0) return {U,price,net:0,tooSmall:true};
       return {U,price,net,profit,tier,idx:i,r};
@@ -243,7 +243,7 @@ function calcBase(from,to,amount){
   const p0=t[0][1], profit=Math.max(MIN_PROFIT, U*(1-factor(r.mode,p0)));
   const net=(U-profit)*price;
   if(net<=0) return {U,price,net:0,tooSmall:true};
-  return {U,price,net,profit,tier:`мин. ${MIN_PROFIT} USDT (ниже ${fmtNum(t[0][0],0)} ${to})`,idx:-1,r};
+  return {U,price,net,profit,tier:`мин. ${fmtNum(MIN_PROFIT,1)} USDT (ниже ${fmtNum(t[0][0],0)} ${to})`,idx:-1,r};
 }
 // Скидка за перевод бат на счёт (по сумме к получению)
 const ACC_DISC=[[25000,.0025],[150000,.0015]];   // от 25 000 ฿ — 0,25%, от 150 000 ฿ — 0,15%
@@ -252,12 +252,15 @@ function calc(from,to,amount,cash,noRound){
   const r=calcBase(from,to,amount);
   if(r.tooSmall||to!=="THB") return r;
   if(cash){ // банкоматы выдают от 100 ฿ — округляем до сотни: до 49 вниз, от 50 вверх
-    const net=noRound?r.net:Math.round(r.net/100)*100;
+    let net=noRound?r.net:Math.round(r.net/100)*100;
+    if(!noRound && r.U-net/r.price<MIN_PROFIT-1e-9) net=Math.floor(r.net/100)*100;   // вверх не округляем, если прибыль упадёт ниже минимума
     if(net<100) return {...r,net:0,tooSmall:true};
     return {...r,net,profit:r.U-net/r.price,tier:r.tier+(noRound?"":" · округл. до 100 ฿")};
   }
   const d=discFor(r.net); if(!d) return r;
-  const net=r.net + r.U*THB.bid*d;   // скидка уменьшает наценку: bid×(1−fee−p+d)
+  const cap=(r.U-MIN_PROFIT)*r.price;   // скидка не может опустить прибыль ниже минимума
+  const net=Math.min(r.net + r.U*THB.bid*d, Math.max(r.net,cap));   // скидка уменьшает наценку: bid×(1−fee−p+d)
+  if(net<=r.net) return r;
   return {...r,net,profit:r.U-net/r.price,disc:d,tier:r.tier+` + скидка за перевод ${fmtPct(d)}`};
 }
 // Обратный расчёт: хочу получить target → сколько отдать (минимальная сумма)
