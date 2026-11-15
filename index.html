@@ -112,6 +112,50 @@ summary{cursor:pointer;font-weight:600;font-size:14px}
 .check .sep{grid-column:1/-1;border-top:1px solid var(--line);margin:6px 0}
 .foot{color:var(--muted);font-size:12px;text-align:center}
 @media (prefers-reduced-motion:no-preference){.big{transition:opacity .15s}}
+
+/* ---------- Раздел «О нас» (панель поверх калькулятора) ---------- */
+.ab{position:fixed;inset:0;z-index:50;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:0 max(16px,env(safe-area-inset-left,0px)) 40px}
+.ab[hidden]{display:none}
+.ab-in{max-width:440px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.ab-top{position:sticky;top:0;z-index:1;background:var(--bg);display:flex;align-items:center;justify-content:space-between;padding:calc(12px + env(safe-area-inset-top,0px)) 0 8px}
+.ab-back{font:inherit;font-weight:600;font-size:14px;color:var(--accent);background:transparent;border:0;padding:6px 0;cursor:pointer}
+.ab-h{font-family:var(--display);font-weight:700;font-size:15px;color:var(--fg)}
+.ab-hero{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;gap:12px;align-items:center}
+.ab-hero img{width:56px;height:56px;border-radius:50%;flex:none}
+.ab-hero b{font-family:var(--display);font-size:17px;color:var(--accent);display:block;line-height:1.2}
+.ab-hero span{color:var(--muted);font-size:13.5px;line-height:1.35;display:block;margin-top:3px}
+.ab-facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ab-fact{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 6px;text-align:center}
+.ab-fact b{display:block;font-family:var(--display);font-size:17px;color:var(--accent);line-height:1.2}
+.ab-fact span{font-size:11.5px;color:var(--muted);line-height:1.25;display:block;margin-top:2px}
+.ab-sec{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.ab-sec h3{margin:0;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ab-cities{font-size:14px;line-height:1.5}
+.ab-cities b{color:var(--accent)}
+.ab-svc{display:flex;gap:10px;align-items:flex-start}
+.ab-svc i{font-style:normal;font-size:19px;line-height:1.2;flex:none;width:26px;text-align:center}
+.ab-svc b{display:block;font-size:14.5px;line-height:1.3}
+.ab-svc span{display:block;font-size:13px;color:var(--muted);line-height:1.35;margin-top:1px}
+.ab-steps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;counter-reset:s}
+.ab-steps li{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.35;counter-increment:s}
+.ab-steps li::before{content:counter(s);flex:none;width:22px;height:22px;border-radius:50%;background:var(--soft);color:var(--accent);font-weight:700;font-size:12.5px;display:flex;align-items:center;justify-content:center;margin-top:-1px}
+.ab details{border:0;border-top:1px solid var(--line);border-radius:0;background:none;padding:8px 0 0;margin:0}
+.ab summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--accent);list-style:none}
+.ab summary::-webkit-details-marker{display:none}
+.ab summary::after{content:" ▾";font-size:12px}
+.ab details[open] summary::after{content:" ▴"}
+.ab details ol{margin:8px 0 2px;padding-left:20px;font-size:13.5px;line-height:1.45}
+.ab details p{margin:6px 0 0;font-size:13px;color:var(--muted)}
+.ab-banks{display:flex;flex-wrap:wrap;gap:6px}
+.ab-banks span{font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px;background:#FFFFFF;border:1px solid var(--line)}
+.ab-tip{font-size:13px;background:var(--warn-bg);color:var(--warn);border-radius:12px;padding:9px 11px;font-weight:600}
+.ab-rev{display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;background:var(--soft);border:1.5px solid var(--accent);border-radius:16px;padding:13px 14px}
+.ab-rev i{font-style:normal;font-size:24px}
+.ab-rev b{display:block;color:var(--accent);font-size:15px}
+.ab-rev span{display:block;font-size:13px;color:var(--muted)}
+.ab-rev::after{content:"›";margin-left:auto;font-size:24px;color:var(--accent)}
+.ab-links{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 </style>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} body{margin:0} img{max-width:100%} [hidden]{display:none!important}</style>
 </head>
@@ -173,7 +217,73 @@ summary{cursor:pointer;font-weight:600;font-size:14px}
     <dl class="check" id="check"></dl>
     <div class="check" id="tgInfo"></div>
   </details>
-  <p class="foot" id="foot">Загружаю актуальные курсы…</p>
+  
+<div class="ab" id="about" hidden role="dialog" aria-modal="true" aria-label="О нас">
+ <div class="ab-in">
+  <div class="ab-top"><button type="button" class="ab-back" id="abClose">‹ К калькулятору</button><span class="ab-h">О нас</span></div>
+
+  <div class="ab-hero"><img src="apple-touch-icon.png" alt=""><div><b>Magic Exchange</b><span>Обмен валют на тайские баты. Наличные в банкомате без карты, переводы на тайский счёт.</span></div></div>
+
+  <div class="ab-facts">
+   <div class="ab-fact"><b>4 года</b><span>работаем в Таиланде</span></div>
+   <div class="ab-fact"><b>7 дней</b><span>в неделю, без выходных</span></div>
+   <div class="ab-fact"><b>10–23</b><span>часы работы</span></div>
+  </div>
+
+  <a class="ab-rev" href="https://t.me/magicexchangereviews" target="_blank" rel="noopener"><i>⭐</i><div><b>Отзывы клиентов</b><span>Поищите там знакомых 😉</span></div></a>
+
+  <section class="ab-sec">
+   <h3>Где работаем</h3>
+   <div class="ab-cities">🏠 <b>Панган</b> · Самуи · Пхукет · Чиангмай · Бангкок · Паттайя — и любой город Таиланда, где есть банкомат</div>
+  </section>
+
+  <section class="ab-sec">
+   <h3>Что мы делаем</h3>
+   <div class="ab-svc"><i>🏧</i><div><b>Наличные в банкомате без карты</b><span>Без тайского счёта, по QR-коду или по коду снятия. По всему Таиланду.</span></div></div>
+   <div class="ab-svc"><i>🏦</i><div><b>Перевод на тайский счёт</b><span>Без округления до 100 ฿, от 25 000 ฿ — скидка 0,25%.</span></div></div>
+   <div class="ab-svc"><i>🏨</i><div><b>Оплата отелей и авиабилетов за рубли</b><span>Платите рублями — мы оплачиваем в батах.</span></div></div>
+   <div class="ab-svc"><i>🌍</i><div><b>Western Union</b><span>Выдача в любой стране мира.</span></div></div>
+   <div class="ab-svc"><i>♻️</i><div><b>Обмен в обе стороны</b><span>RUB 🇷🇺, USDT, UAH 🇺🇦, EUR 🇪🇺, TRY 🇹🇷, GEL 🇬🇪, IDR 🇮🇩 и другие валюты ⇄ тайские баты 🇹🇭</span></div></div>
+  </section>
+
+  <section class="ab-sec">
+   <h3>Как проходит обмен</h3>
+   <ol class="ab-steps">
+    <li>Посчитайте сумму в калькуляторе и нажмите «Оформить обмен в Telegram».</li>
+    <li>Александр подтвердит курс и пришлёт реквизиты — вы оплачиваете.</li>
+    <li>Получаете баты: на счёт или наличными в банкомате.</li>
+   </ol>
+  </section>
+
+  <section class="ab-sec">
+   <h3>Как получить наличные</h3>
+   <ol class="ab-steps">
+    <li>Напишите, какая сумма нужна и какие банкоматы рядом с вами.</li>
+    <li>Согласуем курс, вы оплачиваете.</li>
+    <li>Скажем, к какому банкомату идти и какой банк выбрать на экране.</li>
+    <li>Забираете наличные 💰</li>
+   </ol>
+   <div class="ab-banks"><span style="color:#1E4598">Bangkok Bank</span><span style="color:#138F2D">Kasikorn</span><span style="color:#00A0DF">Krungthai</span><span style="color:#D9A800">Krungsri</span><span style="color:#4E2A84">SCB</span><span style="color:#E4197F">GSB</span><span><b style="color:#0B2B66">t</b><b style="color:#1E8FD8">t</b><b style="color:#F58220">b</b></span></div>
+   <details>
+    <summary>📷 Способ А: по QR-коду</summary>
+    <p>⚠️ Банкомат показывает QR-код всего несколько секунд — заранее откройте наш чат и камеру в нём.</p>
+    <ol><li>Нажмите <b>Cardless Withdrawal</b>.</li><li>Выберите банк, который мы назовём.</li><li>Сразу сфотографируйте QR-код и отправьте нам.</li><li>Ответим «Готово, жмите Confirm» — нажмите <b>Confirm</b> и заберите деньги.</li></ol>
+   </details>
+   <details>
+    <summary>🔢 Способ Б: по телефону и коду</summary>
+    <ol><li>Нажмите <b>Cardless ATM / Cardless Withdrawal</b>.</li><li>Выберите банк, который мы назовём.</li><li>Введите номер телефона, который мы пришлём.</li><li>Проверьте сумму и подтвердите.</li><li>Введите код снятия и заберите деньги.</li></ol>
+    <p>⏱ Код действует около 15 минут — пишите, когда уже стоите у банкомата.</p>
+   </details>
+   <div class="ab-tip">За одну операцию банкомат выдаёт обычно 20 000–30 000 ฿ — крупную сумму снимаем в несколько заходов. QR-код и код снятия показывайте только нам.</div>
+  </section>
+
+  <div class="ab-links">
+   <a class="btn2" href="https://t.me/goahouserent" target="_blank" rel="noopener">💬 Написать</a>
+   <a class="btn2" href="https://t.me/magicexchangechannel" target="_blank" rel="noopener">📈 Курсы и новости</a>
+  </div>
+ </div>
+</div>
+<p class="foot" id="foot">Загружаю актуальные курсы…</p>
 </div>
 
 <script>
@@ -569,6 +679,18 @@ document.addEventListener('click', function(e){
 });
 // Панель проверки видна только по ссылке с #check
 document.getElementById('dbg').hidden = location.hash !== '#check';
+
+// ---------- «О нас» ----------
+(function(){
+  const ab=document.getElementById("about");
+  function openAb(){ ab.hidden=false; ab.scrollTop=0; document.body.style.overflow="hidden";
+    try{ const tg=window.Telegram&&window.Telegram.WebApp; if(tg&&tg.BackButton){ tg.BackButton.show(); tg.BackButton.onClick(closeAb); } }catch(e){} }
+  function closeAb(){ ab.hidden=true; document.body.style.overflow="";
+    try{ const tg=window.Telegram&&window.Telegram.WebApp; if(tg&&tg.BackButton){ tg.BackButton.offClick(closeAb); tg.BackButton.hide(); } }catch(e){} }
+  document.getElementById("chan").addEventListener("click",e=>{ e.preventDefault(); e.stopImmediatePropagation(); openAb(); }, true);
+  document.getElementById("abClose").onclick=closeAb;
+  window.openAbout=openAb;
+})();
 </script>
 </body>
 </html>
