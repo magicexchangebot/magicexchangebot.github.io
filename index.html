@@ -88,17 +88,17 @@ select.native{display:none}
 .opt[aria-pressed="true"]{border-color:var(--accent);background:var(--soft)}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}}}
 input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.swap{align-self:center;border:1px solid var(--line);background:var(--surface);color:var(--fg);width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:17px;margin:-4px 0}
+.swap{align-self:center;border:1px solid var(--line);background:var(--surface);color:var(--fg);width:30px;height:30px;padding:0;border-radius:50%;cursor:pointer;font-size:14px;line-height:1;margin:-11px 0}
 .result{background:var(--soft);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:4px}
 .big{font-family:var(--display);font-weight:700;font-size:28px;letter-spacing:-.02em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .rate{color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums}
 .hint{font-size:13.5px;color:var(--accent);font-weight:600}
 .note{font-size:13.5px;background:var(--warn-bg);color:var(--warn);border-radius:12px;padding:10px 12px}
 .promo{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:14px}
-.share{align-self:center;font:inherit;font-size:13.5px;font-weight:600;color:var(--accent);background:transparent;border:1px solid var(--line);border-radius:999px;padding:7px 14px;cursor:pointer;margin-top:-4px}
+.share{align-self:center;font:inherit;font-size:12px;font-weight:600;color:var(--accent);background:transparent;border:1px solid var(--line);border-radius:999px;padding:4px 10px;cursor:pointer;margin-top:-6px}
 .cta{display:block;text-align:center;text-decoration:none;background:var(--accent);color:var(--accent-fg);font-weight:700;border-radius:14px;padding:14px}
 .btns2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.btn2{display:block;min-width:0;text-align:center;min-height:44px;box-sizing:border-box;padding:12px 6px;border:1.5px solid var(--accent);border-radius:12px;color:var(--accent);font-weight:700;font-size:14px;text-decoration:none;line-height:1.2;white-space:normal;overflow:visible;text-overflow:clip}
+.btn2{display:flex;align-items:center;justify-content:center;min-width:0;text-align:center;min-height:44px;box-sizing:border-box;padding:12px 6px;border:1.5px solid var(--accent);border-radius:12px;color:var(--accent);font-weight:700;font-size:14px;text-decoration:none;line-height:1.2;white-space:normal;overflow:visible;text-overflow:clip}
 .fb{display:flex;flex-direction:column;gap:8px}
 .fb-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .fb-row button,.fb-row a{font:inherit;font-size:14px;font-weight:700;min-height:44px;box-sizing:border-box;padding:10px 6px;border:1.5px solid var(--warn);border-radius:12px;background:transparent;color:var(--warn);text-align:center;text-decoration:none;cursor:pointer}
@@ -161,7 +161,7 @@ summary{cursor:pointer;font-weight:600;font-size:14px}
     <div class="note promo" id="promo" hidden><div id="hint" hidden></div><div id="hint2" hidden></div></div>
     <div class="note" id="note" hidden></div>
     <a class="cta" id="cta" href="https://t.me/goahouserent" target="_blank" rel="noopener">Оформить обмен в Telegram</a>
-    <div class="btns2"><a id="mgr" class="btn2" href="https://t.me/goahouserent" target="_blank" rel="noopener">💬 Написать менеджеру</a><a id="chan" class="btn2" href="https://t.me/magicexchangechannel" target="_blank" rel="noopener">ℹ️ Узнать больше</a></div>
+    <div class="btns2"><a id="mgr" class="btn2" href="https://t.me/goahouserent" target="_blank" rel="noopener">💬 Задать вопрос</a><a id="chan" class="btn2" href="https://t.me/magicexchangechannel" target="_blank" rel="noopener">ℹ️ О нас</a></div>
     <div class="note fb" id="fb" hidden>
       <div id="fbTxt">Если чат не открылся — скопируйте заявку и отправьте её менеджеру <b>@goahouserent</b>.</div>
       <div class="fb-row"><button type="button" id="fbCopy">📋 Скопировать заявку</button><a id="fbOpen" href="https://t.me/goahouserent" target="_blank" rel="noopener">Открыть чат</a></div>
@@ -383,6 +383,7 @@ function update(){
     } else { const g2=calcReverse(from,to,parse($("amtTo").value),false), diff=give-g2, d2=calc(from,to,g2,false).disc;
       hint2.textContent = diff<Math.pow(10,-CUR[from].dec) ? fallback : d2 ? `Переводом на счёт нужно отдать на ${fmtAmt(diff,from)} меньше (скидка ${fmtPct(d2)})` : soft; }
     hint2.hidden=false;
+    if(to==="THB" && net<ACC_DISC[0][0]) hint.hidden=true; // про 25 000 ฿ уже сказано в строке о переводе на счёт
   }
   $("promo").hidden = hint.hidden && hint2.hidden;
   // проверка
