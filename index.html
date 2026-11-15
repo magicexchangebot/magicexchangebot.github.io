@@ -55,9 +55,9 @@ header{display:flex;align-items:center;gap:14px}
 h1{font-family:var(--display);font-weight:700;font-size:min(22px,5.6vw);margin:4px 0 0;text-align:center;letter-spacing:-.01em;text-wrap:balance}
 .sub{color:var(--muted);font-size:min(15px,calc((100vw - 40px) / 27));margin:0;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .sub b{color:var(--accent);font-weight:700}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:14px}
-.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--sunk);border-radius:12px;padding:3px;gap:3px}
-.seg button{font:inherit;font-size:13.5px;font-weight:600;border:0;border-radius:10px;padding:9px 6px;background:transparent;color:var(--muted);cursor:pointer}
-.seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgb(0 0 0 / .12)}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--sunk);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px}
+.seg button{font:inherit;font-size:13.5px;font-weight:600;border:0;border-radius:10px;padding:9px 6px;background:transparent;color:var(--fg);opacity:.7;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);opacity:1;font-weight:700;box-shadow:0 1px 4px rgb(28 127 71 / .35)}
 .lbl{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
 .row{display:grid;grid-template-columns:minmax(0,1fr) 128px;gap:8px}
 input,select{font:inherit;color:var(--fg);background:var(--sunk);border:1px solid var(--line);border-radius:12px;padding:12px;width:100%;min-width:0}
@@ -245,14 +245,17 @@ function calcBase(from,to,amount){
   if(net<=0) return {U,price,net:0,tooSmall:true};
   return {U,price,net,profit,tier:`мин. ${fmtNum(MIN_PROFIT,1)} USDT (ниже ${fmtNum(t[0][0],0)} ${to})`,idx:-1,r};
 }
+// Наличные кратно 100 ฿: остаток до 64 ฿ — вниз, от 65 ฿ — вверх
+const CASH_UP=65;
+function roundCash(v){const b=Math.floor(v/100)*100;return v-b>=CASH_UP-1e-9?b+100:b;}
 // Скидка за перевод бат на счёт (по сумме к получению)
 const ACC_DISC=[[25000,.0025],[150000,.0015]];   // от 25 000 ฿ — 0,25%, от 150 000 ฿ — 0,15%
 function discFor(net){let d=0;for(const [th,v] of ACC_DISC) if(net>=th) d=v;return d;}
 function calc(from,to,amount,cash,noRound){
   const r=calcBase(from,to,amount);
   if(r.tooSmall||to!=="THB") return r;
-  if(cash){ // банкоматы выдают от 100 ฿ — округляем до сотни: до 49 вниз, от 50 вверх
-    let net=noRound?r.net:Math.round(r.net/100)*100;
+  if(cash){ // банкоматы выдают от 100 ฿ — округляем до сотни: до 64 вниз, от 65 вверх
+    let net=noRound?r.net:roundCash(r.net);
     if(!noRound && r.U-net/r.price<MIN_PROFIT-1e-9) net=Math.floor(r.net/100)*100;   // вверх не округляем, если прибыль упадёт ниже минимума
     if(net<100) return {...r,net:0,tooSmall:true};
     return {...r,net,profit:r.U-net/r.price,tier:r.tier+(noRound?"":" · округл. до 100 ฿")};
@@ -341,7 +344,7 @@ function update(){
     $("check").innerHTML=""; setCta(null); return;
   }
   if(st.mode==="give"){ give=parse($("amtFrom").value); res=give?calc(from,to,give,st.cash):null; }
-  else { let want=parse($("amtTo").value); if(want&&st.cash&&to==="THB") want=Math.round(want/100)*100; st.wantR=want; if(want){give=calcReverse(from,to,want,st.cash); res=calc(from,to,give,st.cash,true);} }
+  else { let want=parse($("amtTo").value); if(want&&st.cash&&to==="THB") want=roundCash(want); st.wantR=want; if(want){give=calcReverse(from,to,want,st.cash); res=calc(from,to,give,st.cash,true);} }
   if(!res||res.tooSmall){
     $("big").textContent="—"; $("rate").textContent= res&&res.tooSmall ? "Сумма слишком мала для обмена" : "Введите сумму";
     if(st.mode==="give") $("amtTo").value=""; else $("amtFrom").value="";
@@ -363,11 +366,13 @@ function update(){
   if(next<Infinity){hint.textContent=`От ${fmtAmt(next,to)} к получению курс выгоднее`; hint.hidden=false;}
   if(from==="THB"){note.textContent="Способ передачи бат обсудим в переписке перед обменом."; note.hidden=false;}
   if(st.cash){
-    const fallback=`Переводом на счёт от ${fmtNum(ACC_DISC[0][0],0)} ฿ — скидка ${fmtPct(ACC_DISC[0][1])}`;
+    const d0p=`от ${fmtNum(ACC_DISC[0][0],0)} ฿ — скидка ${fmtPct(ACC_DISC[0][1])}`;
+    const fallback=`Переводом на счёт ${d0p}`;
+    const soft=`Переводом на счёт получите немного больше: без округления до 100 ฿, а ${d0p}`;
     if(st.mode==="give"){ const alt=calc(from,to,give,false), diff=alt.net-net;
-      hint2.textContent = diff>=1 ? `Переводом на счёт получите на ${fmtAmt(diff,to)} больше (скидка ${fmtPct(alt.disc)})` : fallback;
-    } else { const g2=calcReverse(from,to,parse($("amtTo").value),false), diff=give-g2;
-      hint2.textContent = diff>=Math.pow(10,-CUR[from].dec) ? `Переводом на счёт нужно отдать на ${fmtAmt(diff,from)} меньше (скидка ${fmtPct(calc(from,to,g2,false).disc||0)})` : fallback; }
+      hint2.textContent = diff<1 ? fallback : alt.disc ? `Переводом на счёт получите на ${fmtAmt(diff,to)} больше (скидка ${fmtPct(alt.disc)})` : soft;
+    } else { const g2=calcReverse(from,to,parse($("amtTo").value),false), diff=give-g2, d2=calc(from,to,g2,false).disc;
+      hint2.textContent = diff<Math.pow(10,-CUR[from].dec) ? fallback : d2 ? `Переводом на счёт нужно отдать на ${fmtAmt(diff,from)} меньше (скидка ${fmtPct(d2)})` : soft; }
     hint2.hidden=false;
   }
   $("promo").hidden = hint.hidden && hint2.hidden;
@@ -388,7 +393,8 @@ function update(){
 let reqText="";
 function setCta(d){
   if(!d){reqText="";$("cta").href="https://t.me/goahouserent";return;}
-  reqText=`Здравствуйте! Хочу обменять ${fmtAmt(d.give,d.from)} → ${fmtAmt(d.net,d.to)} (${st.cash?"наличные":"перевод на счёт"}). Расчёт из калькулятора Magic Exchange.`;
+  const how = st.cash ? "наличными 💵" : d.to==="THB" ? "переводом на счёт 🏦" : "переводом 🏦";
+  reqText=`Здравствуйте! Хочу обменять ${fmtAmt(d.give,d.from)} → ${fmtAmt(d.net,d.to)}.\nПолучить ${d.to} — ${how}.\nРасчёт из калькулятора Magic Exchange.`;
   $("cta").href="https://t.me/goahouserent?text="+encodeURIComponent(reqText);
   $("mgr").href=$("cta").href;
 }
@@ -403,12 +409,12 @@ $("swap").onclick=()=>{ if(st.cash) return; const f=st.from,t=st.to;
 $("amtFrom").addEventListener("input",()=>{if(st.mode!=="give"){st.mode="give";sync();}else update();});
 function snapCashSilent(){
   if(!(st.cash && st.to==="THB")) return;
-  const v=parse($("amtTo").value); if(v) $("amtTo").value=fmtNum(Math.max(100,Math.round(v/100)*100),0);
+  const v=parse($("amtTo").value); if(v) $("amtTo").value=fmtNum(Math.max(100,roundCash(v)),0);
 }
 function snapCash(){
   if(!(st.cash && st.to==="THB")) return;
   const v=parse($("amtTo").value); if(!v) return;
-  const r=Math.max(100,Math.round(v/100)*100);
+  const r=Math.max(100,roundCash(v));
   $("amtTo").value=fmtNum(r,0);
   if(st.mode==="get") update();
 }
